@@ -1,0 +1,55 @@
+name: Test and coverage
+
+on:
+  push:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run tests
+        run: cargo test --workspace --verbose
+
+  test-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - name: Build cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+
+      - name: Run tests
+        run: cargo test --workspace --verbose
+
+      - name: Generate coverage report (libratgreet)
+        run: cargo llvm-cov -p libratgreet --lcov --output-path lcov-ratgreet.info
+
+      - name: Upload ratgreet coverage to Codecov
+        uses: codecov/codecov-action@v6
+        with:
+          files: ./lcov-ratgreet.info
+          flags: ratgreet
+          name: ratgreet
+          fail_ci_if_error: false
+          verbose: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

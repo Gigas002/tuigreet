@@ -1,0 +1,61 @@
+# ratgreet theme
+#
+# Install as /etc/ratgreet/theme.toml or ~/.config/ratgreet/theme.toml.
+# Resolution: built-in defaults → /etc → XDG user → --theme PATH (see examples/cli.md).
+#
+# [ui]     — layout, banner, clock
+# [colors] — semantic color roles (ANSI names or #rrggbb hex)
+
+# ---------------------------------------------------------------------------
+# UI: layout, banner above the prompt, clock
+# ---------------------------------------------------------------------------
+[ui]
+# Width of the main login box (columns).
+width = 80
+# Padding around the outer terminal area and inside the login box.
+window_padding = 0
+container_padding = 1
+prompt_padding = 1
+# Banner text alignment: left | center | right
+greet_align = "center"
+
+# Clock on the top line of the screen (outside the login box).
+show_time = true
+# strftime format when show_time = true (chrono syntax).
+time_format = "%c"
+
+# Banner above "Username:" — pick at most one of issue or greeting.
+# issue = true reads and expands /etc/issue (hostname, tty, uname escapes, etc.).
+# greeting = "Welcome" uses fixed custom text.
+# If both are off, no banner is shown.
+issue = true
+# greeting = "Welcome"
+
+# ---------------------------------------------------------------------------
+# Colors: semantic UI roles
+# ---------------------------------------------------------------------------
+# Each entry may be a named ANSI color (blue, cyan, …) or CSS-like hex (#rgb, #rrggbb).
+# Omitted roles use built-in terminal styling. Inheritance when unset:
+#   time → text, greet → text, title → border, button → action
+
+[colors]
+# Background of the login / menu boxes
+container = "blue"
+# Top-of-screen clock (when show_time = true)
+time = "cyan"
+# Default foreground: status/errors, menu items
+text = "white"
+# Box borders
+border = "white"
+# Box title bar ("Authenticate into …", etc.)
+title = "cyan"
+# /etc/issue or greeting banner
+greet = "white"
+# Labels: "Username:", "New command:", …
+prompt = "white"
+# Typed username, password, command
+input = "white"
+# Status bar action names
+action = "yellow"
+# Status bar F-key hints
+button = "yellow"

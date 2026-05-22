@@ -1,0 +1,21 @@
+[files]
+extend-exclude = ["Cargo.lock"]
+
+[default.extend-words]
+# greetd / PAM / Unix jargon
+greetd = "greetd"
+xsessions = "xsessions"
+xsession = "xsession"
+utmp = "utmp"
+uzers = "uzers"
+ratatui = "ratatui"
+ratgreet = "ratgreet"
+libratgreet = "libratgreet"
+crossterm = "crossterm"
+setsid = "setsid"
+wayland = "wayland"
+startx = "startx"
+PAM = "PAM"
+
+[default]
+locale = "en-us"

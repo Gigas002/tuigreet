@@ -1,0 +1,10 @@
+[colors]
+time = "#00c1e4"
+text = "#00c1e4"
+border = "#71f79f"
+title = "#00c1e4"
+greet = "#00c1e4"
+prompt = "#71f79f"
+input = "#00c1e4"
+action = "#f9dc5c"
+button = "#f9dc5c"

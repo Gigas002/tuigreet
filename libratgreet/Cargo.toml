@@ -1,0 +1,27 @@
+[package]
+name = "libratgreet"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+test-harness = []
+
+[dependencies]
+chrono.workspace = true
+crossterm.workspace = true
+greetd_ipc.workspace = true
+rustix.workspace = true
+rust-ini = "0.21"
+tokio = { workspace = true, features = [
+  "net",
+  "sync",
+  "time",
+  "process",
+] }
+zeroize = "1"
+tracing-appender.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

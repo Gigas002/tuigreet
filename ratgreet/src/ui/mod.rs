@@ -1,0 +1,230 @@
+mod command;
+pub mod common;
+mod processing;
+mod prompt;
+pub(crate) mod strings;
+mod util;
+
+use std::{
+    borrow::Cow,
+    error::Error,
+    io::{self, Write},
+    sync::Arc,
+};
+
+use chrono::prelude::*;
+use libratgreet::{Greeter, Mode, info::capslock_status, model::sessions::SessionSource};
+use ratatui::{
+    Terminal,
+    layout::{Alignment, Constraint, Direction, Layout},
+    style::Modifier,
+    text::{Line, Span},
+    widgets::Paragraph,
+};
+use tokio::sync::RwLock;
+use util::buttonize;
+
+use crate::ui::util::should_hide_cursor;
+
+use self::common::style::{Theme, Themed};
+
+pub(super) use ratatui::Frame;
+
+const TITLEBAR_INDEX: usize = 1;
+const STATUSBAR_INDEX: usize = 3;
+const STATUSBAR_LEFT_INDEX: usize = 1;
+const STATUSBAR_RIGHT_INDEX: usize = 2;
+
+enum Button {
+    Command,
+    Session,
+    Power,
+    Other,
+}
+
+pub async fn draw<B>(
+    greeter: Arc<RwLock<Greeter>>,
+    theme: &Theme,
+    terminal: &mut Terminal<B>,
+) -> Result<(), Box<dyn Error>>
+where
+    B: ratatui::backend::Backend,
+    <B as ratatui::backend::Backend>::Error: 'static,
+{
+    let mut greeter = greeter.write().await;
+    let hide_cursor = should_hide_cursor(&greeter);
+
+    terminal.draw(|f| {
+        let size = f.area();
+        let chunks = Layout::default()
+            .constraints(
+                [
+                    Constraint::Length(greeter.window_padding()), // Top vertical padding
+                    Constraint::Length(1),                        // Date and time
+                    Constraint::Min(1),                           // Main area
+                    Constraint::Length(1),                        // Status line
+                    Constraint::Length(greeter.window_padding()), // Bottom vertical padding
+                ]
+                .as_ref(),
+            )
+            .split(size);
+
+        if greeter.time {
+            let time_text = Span::from(get_time(&greeter));
+            let time = Paragraph::new(time_text)
+                .alignment(Alignment::Center)
+                .style(theme.of(&[Themed::Time]));
+
+            f.render_widget(time, chunks[TITLEBAR_INDEX]);
+        }
+
+        let status_block_size_right =
+            1 + greeter.window_padding() + strings::get("status_caps").chars().count() as u16;
+        let status_block_size_left =
+            (size.width - greeter.window_padding()) - status_block_size_right;
+
+        let status_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(
+                [
+                    Constraint::Length(greeter.window_padding()),
+                    Constraint::Length(status_block_size_left),
+                    Constraint::Length(status_block_size_right),
+                    Constraint::Length(greeter.window_padding()),
+                ]
+                .as_ref(),
+            )
+            .split(chunks[STATUSBAR_INDEX]);
+
+        let session_source_label = match greeter.session_source {
+            SessionSource::Session(_) => strings::get("status_session"),
+            _ => strings::get("status_command"),
+        };
+
+        let session_source = greeter.session_source.label(&greeter).unwrap_or("-");
+
+        let status_left_text = Line::from(vec![
+            status_label(theme, "ESC"),
+            status_value(&greeter, theme, Button::Other, strings::get("action_reset")),
+            Span::from(" "),
+            status_label(theme, format!("F{}", greeter.kb_command)),
+            status_value(
+                &greeter,
+                theme,
+                Button::Command,
+                strings::get("action_command"),
+            ),
+            Span::from(" "),
+            status_label(theme, format!("F{}", greeter.kb_sessions)),
+            status_value(
+                &greeter,
+                theme,
+                Button::Session,
+                strings::get("action_session"),
+            ),
+            Span::from(" "),
+            status_label(theme, format!("F{}", greeter.kb_power)),
+            status_value(&greeter, theme, Button::Power, strings::get("action_power")),
+            Span::from(" "),
+            status_label(theme, session_source_label),
+            status_value(&greeter, theme, Button::Other, session_source),
+        ]);
+        let status_left = Paragraph::new(status_left_text);
+
+        f.render_widget(status_left, status_chunks[STATUSBAR_LEFT_INDEX]);
+
+        if capslock_status() {
+            let status_right_text = status_label(theme, strings::get("status_caps"));
+            let status_right = Paragraph::new(status_right_text).alignment(Alignment::Right);
+
+            f.render_widget(status_right, status_chunks[STATUSBAR_RIGHT_INDEX]);
+        }
+
+        let cursor = match greeter.mode {
+            Mode::Command => self::command::draw(&mut greeter, theme, f).ok(),
+            Mode::Sessions => {
+                use common::menu::DrawMenu;
+                greeter.sessions.draw(&greeter, theme, f).ok()
+            }
+            Mode::Power => {
+                use common::menu::DrawMenu;
+                greeter.powers.draw(&greeter, theme, f).ok()
+            }
+            Mode::Processing => self::processing::draw(&mut greeter, theme, f).ok(),
+            _ => self::prompt::draw(&mut greeter, theme, f).ok(),
+        };
+
+        if !hide_cursor && let Some(cursor) = cursor {
+            f.set_cursor_position((cursor.0 - 1, cursor.1 - 1));
+        }
+    })?;
+
+    io::stdout().flush()?;
+
+    Ok(())
+}
+
+fn get_time(greeter: &Greeter) -> String {
+    let format = match &greeter.time_format {
+        Some(format) => Cow::Borrowed(format),
+        None => Cow::Owned(strings::get("date")),
+    };
+
+    Local::now().format(format.as_ref()).to_string()
+}
+
+fn status_label<'s, S>(theme: &Theme, text: S) -> Span<'s>
+where
+    S: Into<String>,
+{
+    Span::styled(
+        text.into(),
+        theme
+            .of(&[Themed::ActionButton])
+            .add_modifier(Modifier::REVERSED),
+    )
+}
+
+fn status_value<'s, S>(greeter: &Greeter, theme: &Theme, button: Button, text: S) -> Span<'s>
+where
+    S: Into<String>,
+{
+    let relevant_mode = match button {
+        Button::Command => Mode::Command,
+        Button::Session => Mode::Sessions,
+        Button::Power => Mode::Power,
+
+        _ => {
+            return Span::from(buttonize(&text.into())).style(theme.of(&[Themed::Action]));
+        }
+    };
+
+    let style = match greeter.mode == relevant_mode {
+        true => theme
+            .of(&[Themed::ActionButton])
+            .add_modifier(Modifier::REVERSED),
+        false => theme.of(&[Themed::Action]),
+    };
+
+    Span::from(buttonize(&text.into())).style(style)
+}
+
+fn prompt_value<'s, S>(theme: &Theme, text: Option<S>) -> Span<'s>
+where
+    S: Into<String>,
+{
+    match text {
+        Some(text) => Span::styled(
+            text.into(),
+            theme.of(&[Themed::Prompt]).add_modifier(Modifier::BOLD),
+        ),
+        None => Span::from(""),
+    }
+}
+
+fn themed_text<'s, S>(theme: &Theme, text: S) -> Span<'s>
+where
+    S: Into<String>,
+{
+    Span::styled(text.into(), theme.of(&[Themed::Text]))
+}

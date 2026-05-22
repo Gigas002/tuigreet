@@ -1,0 +1,9 @@
+# Example greetd config for ratgreet
+# /etc/greetd/config.toml
+
+[terminal]
+vt = 1
+
+[default_session]
+command = "ratgreet"
+user = "greeter"

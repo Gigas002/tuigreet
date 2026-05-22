@@ -1,0 +1,18 @@
+use std::borrow::Cow;
+
+use crate::power::PowerOption;
+
+use super::menu::MenuItem;
+
+#[derive(Clone, Default)]
+pub struct Power {
+    pub action: PowerOption,
+    pub label: String,
+    pub command: Option<String>,
+}
+
+impl MenuItem for Power {
+    fn format(&self) -> Cow<'_, str> {
+        Cow::Borrowed(&self.label)
+    }
+}

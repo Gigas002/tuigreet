@@ -1,0 +1,70 @@
+# ratgreet configuration
+#
+# Install as /etc/ratgreet/config.toml (packagers) or ~/.config/ratgreet/config.toml.
+# Resolution: built-in defaults → /etc → XDG user → --config PATH (see examples/cli.md).
+# Missing, invalid, or empty files are ignored; built-in defaults are used instead.
+#
+# Layout, colors, banner, and clock: see theme.toml ([ui] and [colors]).
+
+# ---------------------------------------------------------------------------
+# Logging (used when --debug is passed, or for future tracing defaults)
+# ---------------------------------------------------------------------------
+[logging]
+# trace | debug | info | warn | error
+level = "info"
+# Default log path when --debug has no FILE argument
+# file = "/tmp/ratgreet.log"
+
+# ---------------------------------------------------------------------------
+# Session: what runs after login, and where .desktop sessions are found
+# ---------------------------------------------------------------------------
+[session]
+# Default command if the user does not pick a session from the menu (F3).
+# Often your Wayland compositor or a fallback shell.
+# cmd = "sway"
+
+# Extra environment variables for the started session (KEY=VALUE strings).
+# env = ["MOZ_ENABLE_WAYLAND=1"]
+
+# Directories scanned for .desktop session files (F3 menu).
+# wayland_dirs = ["/usr/share/wayland-sessions"]
+# x11_dirs = ["/usr/share/xsessions"]
+
+# Optional prefix for Wayland session Exec= lines (rare; DE-specific wrappers).
+# session_wrapper = "/path/to/wayland-wrap"
+
+# Prefix for X11 session Exec= lines so startx launches an X server first.
+# xsession_wrapper = "startx /usr/bin/env"
+# If true: do not prepend xsession_wrapper; run the .desktop command as-is.
+# X11 sessions are still listed — this only disables the startx wrapper.
+# no_xsession_wrapper = false
+
+# ---------------------------------------------------------------------------
+# Secrets: how passwords and PAM challenges are displayed
+# ---------------------------------------------------------------------------
+[secrets]
+# hidden: show nothing while typing
+# plain: show characters as typed
+# masked: show mask_char for each character (default)
+display = "masked"
+mask_char = "*"
+
+# ---------------------------------------------------------------------------
+# Keybindings: F-keys for status-bar actions (values 1–12 → F1–F12)
+# ---------------------------------------------------------------------------
+[keybindings]
+# F2: edit session command
+command = 2
+# F3: session menu
+sessions = 3
+# F12: shutdown / reboot menu (requires [power] commands)
+power = 12
+
+# ---------------------------------------------------------------------------
+# Power: shell commands for the power menu (must be non-interactive)
+# ---------------------------------------------------------------------------
+[power]
+# shutdown = "systemctl poweroff"
+# reboot = "systemctl reboot"
+# By default commands are run under setsid; set true to run them directly.
+no_setsid = false
