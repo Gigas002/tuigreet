@@ -4,6 +4,7 @@ extern crate smart_default;
 #[macro_use]
 mod macros;
 
+mod cli;
 mod config;
 mod event;
 mod greeter;
@@ -19,6 +20,10 @@ mod ui;
 mod integration;
 
 use std::{error::Error, fs::OpenOptions, io, process, sync::Arc};
+
+use clap::Parser;
+use cli::Cli;
+use settings::Settings;
 
 use crossterm::{
     execute,
@@ -39,9 +44,18 @@ use self::{event::Events, ipc::Ipc};
 
 #[tokio::main]
 async fn main() {
+    let cli = Cli::parse();
+    let settings = match Settings::load(&(&cli).into()) {
+        Ok(settings) => settings,
+        Err(err) => {
+            eprintln!("{err}");
+            process::exit(1);
+        }
+    };
+
     let backend = CrosstermBackend::new(io::stdout());
     let events = Events::new().await;
-    let greeter = Greeter::new(events.sender()).await;
+    let greeter = Greeter::new(events.sender(), settings).await;
 
     if let Err(error) = run(backend, greeter, events).await {
         if let Some(AuthStatus::Success) = error.downcast_ref::<AuthStatus>() {

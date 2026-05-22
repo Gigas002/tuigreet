@@ -20,7 +20,11 @@ Reference plan:
 
 ### 1.1 Goals
 
-- **Single binary crate** (`tuigreet`): one package, one executable. Internal **module boundaries** (wau-style layout and test discipline) separate core logic from UI — no `libtuigreet` split.
+- **Workspace layout (wau-style)**: repository root is a **Cargo workspace** with **three members** — same pattern as wau’s `libwau` + `wau` + tests, adapted for a greeter:
+  - **`libtuigreet/`** — library crate: greeter, IPC, config/theme/settings, UI, and all unit tests (`src/<module>/tests.rs`). **No** `main`, **no** greetd-stub harness under `src/`.
+  - **`tuigreet/`** — **thin binary** crate: `main.rs` (tracing, settings, event loop) only; depends on `libtuigreet`. This is what packagers ship.
+  - **`tests/`** — **`tuigreet-tests`** package: greetd-stub integration tests only; depends on **`libtuigreet`** (not on in-process hacks inside the binary crate). **Not** released to users.
+  - Splitting **`libtuigreet`** is required so integration tests can live outside `tuigreet/src/` without a misnamed `src/integration/` tree — today’s harness calls `Greeter`, `Events`, and the test backend in-process.
 - **Configuration-first UX**:
   - **`config.toml`**: everything operators configure today via long CLI flags (sessions, remember, user menu, layout, power commands, keybindings, default command, wrappers, logging).
   - **`theme.toml`**: visual styling only (replaces `--theme` semicolon string).
@@ -32,7 +36,7 @@ Reference plan:
 
 ### 1.2 Discipline (non-negotiable)
 
-- **Core-first modules**: greetd IPC, session resolution, config merge, and “what to run after login” live under `src/{ipc,info,config,…}`; `src/ui/` and `src/main.rs` wire the terminal and draw widgets. Avoid circular deps (UI imports core; core does not import UI).
+- **Core-first modules**: greetd IPC, session resolution, config merge, and “what to run after login” live under `libtuigreet/src/{ipc,info,config,…}`; `libtuigreet/src/ui/` draws widgets; **`tuigreet/src/main.rs`** only wires the loop. Avoid circular deps (UI imports core; core does not import UI).
 - **Step sizing**: small, verifiable steps; each phase ends green on §7 quality gates.
 - **Stay slim**: focused modules; prefer directory modules (`mod.rs` + `tests.rs`) over large monolithic files.
 - **Naming**: short, descriptive; optimize for readers.
@@ -44,7 +48,7 @@ Reference plan:
 - Maintaining a `contrib/` tree (locales, fixtures, man page, screenshots, helper scripts).
 - Optional `nsswrapper` Cargo feature and NSS-wrapper–based tests.
 - Preserving every historical CLI flag for backward compatibility — document migration in `CHANGELOG.md` and `examples/config.toml`.
-- Splitting into a separate library crate (deploy workflow ships the `tuigreet` binary only).
+- Shipping **`libtuigreet`** as a standalone product (deploy workflow ships only the **`tuigreet`** binary from the `tuigreet/` crate).
 
 ### 1.4 Definitions
 
@@ -64,65 +68,95 @@ Behavior and UX should remain recognizable to existing tuigreet users and greetd
 
 ## 2. Repository layout (target)
 
+Mirror **wau**’s workspace shape: config and docs at the **repo root**; each crate in its own directory. **Do not** keep `src/` at the repository root after the workspace migration.
+
 ```text
-tuigreet/
-  Cargo.toml                  # single package (edition 2024)
-  Cargo.lock                  # committed
+tuigreet/                     # repository root (workspace)
+  Cargo.toml                  # members = ["libtuigreet", "tuigreet", "tests"]
+  Cargo.lock
   deny.toml
   .typos.toml
+  .github/
   examples/
-    config.toml
-    theme.toml
-    cli.md
-  src/
-    main.rs                   # init tracing, Settings, event loop entry
-    app/
-      mod.rs
-      tests.rs
-    cli/
-      mod.rs
-      tests.rs
-    config/                   # config.toml types + path resolution
-      mod.rs
-      tests.rs
-    theme/                    # theme.toml types + defaults
-      mod.rs
-      tests.rs
-    settings/                 # merged Settings (cli > config > defaults)
-      mod.rs
-      tests.rs
-    greeter/                  # Greeter state machine (from greeter.rs)
-      mod.rs
-      tests.rs
-    ipc/
-      mod.rs
-      tests.rs
-    info/                     # utmp, users, sessions, issue, cache
-      mod.rs
-      tests.rs
-    power/
-      mod.rs
-      tests.rs
-    event/
-      mod.rs
-      tests.rs
-    keyboard/
-      mod.rs
-      tests.rs
-    ui/                       # ratatui drawing only
-      mod.rs
-      strings.rs              # English UI strings (replaces i18n)
-      …
-    integration/              # greetd-stub harness (existing)
-  tests/                      # optional crate-level integration tests
   docs/
-    PLAN.md
-    WAU_RS_PLAN.md            # reference only
+  libtuigreet/                # library (production + unit tests)
+    Cargo.toml
+    src/
+      lib.rs
+      config/
+      theme/
+      settings/
+      greeter/
+      ipc/
+      info/
+      power/
+      event/
+      keyboard/
+      ui/
+        strings.rs
+        …
+  tuigreet/                   # binary only (shipped artifact)
+    Cargo.toml
+    src/
+      main.rs                 # slim: init tracing, Settings, run loop
+  tests/                      # tuigreet-tests (integration only)
+    Cargo.toml
+    src/
+      lib.rs
+      common/
+      auth.rs
+      display.rs
+      …
+```
+
+**Current vs target**: today the repo is still a **single package** at the root (`Cargo.toml` + `src/`, plus misnamed `src/integration/`). Phase 3 performs the workspace split and deletes `src/integration/`.
+
+**Workspace `Cargo.toml` (sketch)**:
+
+```toml
+[workspace]
+members = ["libtuigreet", "tuigreet", "tests"]
+resolver = "3"
+```
+
+**`tuigreet/Cargo.toml` (sketch)**:
+
+```toml
+[package]
+name = "tuigreet"
+
+[[bin]]
+name = "tuigreet"
+path = "src/main.rs"
+
+[dependencies]
+libtuigreet = { path = "../libtuigreet" }
+```
+
+**`tests/Cargo.toml` (sketch)** — depends on the **library**, not the binary crate:
+
+```toml
+[package]
+name = "tuigreet-tests"
+publish = false
+
+[dependencies]
+libtuigreet = { path = "../libtuigreet" }
+greetd-stub = "…"
+tempfile = "…"
+# tokio, crossterm, ratatui, … as needed by the harness
 ```
 
 No `contrib/` directory — packager docs live in README + `examples/`; screenshots (if any) under `docs/` or external URLs only.
 
-Module boundary rules:
+### 2.0.1 Crate boundary rules (workspace)
+
+- **`libtuigreet/`** owns greeter domain logic, UI drawing, config/theme/settings, and **unit** tests. **No** `main`, **no** `src/integration/`, **no** `#[cfg(test)] mod integration` in library code.
+- **`tuigreet/`** owns **only** the binary entrypoint; calls into `libtuigreet` for everything else (mirror `wau` calling `libwau`).
+- **`tests/`** (`tuigreet-tests`) owns **only** greetd-stub integration tests; depends on **`libtuigreet`** so the harness can keep in-process `Greeter` / `IntegrationRunner` without living under `tuigreet/src/`.
+- **`tests/`** is not published; CI runs `cargo test --workspace`.
+
+Module boundary rules (inside **`libtuigreet/src/`**):
 
 - **`src/ui/`** does not own greetd protocol or config parsing; it receives `Greeter` / `Settings`.
 - **`src/{ipc,info,config,theme,settings,greeter,power}/`** do not import `ratatui` or `crossterm`.
@@ -145,7 +179,18 @@ src/config/
 mod tests;
 ```
 
-Integration tests: `src/integration/` (greetd-stub, existing harness) and/or `tests/` at crate root. Unit tests always use sibling `tests.rs` per module.
+- **Unit tests**: sibling `tests.rs` per module under **`libtuigreet/src/<module>/`**; run with `cargo test -p libtuigreet`.
+- **Greetd-stub / UI flow tests**: **`tests/`** workspace member (`tuigreet-tests`), importing **`libtuigreet::…`**. The historical **`src/integration/`** tree is **misnamed test code** wired through `#[cfg(test)] mod integration` in `main.rs` — delete after migration.
+
+**Migration (Phase 3)**:
+
+1. Add root workspace `Cargo.toml` with `members = ["libtuigreet", "tuigreet", "tests"]`.
+2. Move production `src/**` (except entry glue) into **`libtuigreet/src/`**; add `libtuigreet/src/lib.rs` re-exports as needed.
+3. Add **`tuigreet/src/main.rs`** thin binary depending on `libtuigreet`.
+4. Create **`tests/`** + move `src/integration/**` → `tests/src/**`; update `use` paths to `libtuigreet::…`.
+5. Delete **`src/integration/`** and **`mod integration`** from `main.rs`.
+
+**Do not** add test-only trees under **`tuigreet/src/`** or **`libtuigreet/src/`** after migration (only under **`tests/src/`**).
 
 ### 2.1 Toolchain and dependency policy
 
@@ -289,8 +334,8 @@ Whenever a phase/step is marked complete:
 ### 4.1 Test discipline
 
 - No inline `#[cfg(test)] mod tests { … }` inside implementation files — use sibling `tests.rs`.
-- Integration tests use `greetd-stub` and `tempfile` only (no NSS wrapper, no `contrib/fixtures/`).
-- Remove tests that only assert CLI flag parsing for deprecated flags; replace with config/theme parse tests under `src/config/`, `src/theme/`, `src/settings/`.
+- Greetd-stub integration tests live in the **`tests/`** member (`tuigreet-tests`), depending on **`libtuigreet`**; use `greetd-stub` and `tempfile` only (no NSS wrapper, no `contrib/fixtures/`).
+- Remove tests that only assert CLI flag parsing for deprecated flags; replace with config/theme parse tests under `libtuigreet/src/config/`, `theme/`, `settings/`.
 
 ### 4.2 CI blueprint (tuigreet)
 
@@ -298,10 +343,10 @@ Workflows under `.github/workflows/` (names/paths **tuigreet**, not wau):
 
 | Workflow         | Job                                                                                                   |
 | ---------------- | ----------------------------------------------------------------------------------------------------- |
-| `build.yml`      | Release build (single default feature set)                                                            |
-| `fmt-clippy.yml` | `cargo fmt --check`; clippy on default targets                                                        |
-| `test.yml`       | `cargo test` (+ optional `cargo llvm-cov -p tuigreet`)                                                |
-| `doc.yml`        | `cargo doc --workspace --no-deps`                                                                     |
+| `build.yml`      | `cargo build -p tuigreet --release` (workspace root; ship binary from `tuigreet/`)                   |
+| `fmt-clippy.yml` | `cargo fmt --check`; `cargo clippy --workspace --all-targets`                                        |
+| `test.yml`       | `cargo test --workspace` (`libtuigreet` unit + `tuigreet-tests` integration)                          |
+| `doc.yml`        | `cargo doc -p libtuigreet -p tuigreet --no-deps`                                                      |
 | `typos.yml`      | spelling                                                                                              |
 | `deny.yml`       | license check                                                                                         |
 | `deploy.yml`     | On `v*` tags: build `tuigreet` release binary, strip, tarball `tuigreet-$VERSION-x86_64-linux.tar.gz` |
@@ -334,23 +379,26 @@ Workflows under `.github/workflows/` (names/paths **tuigreet**, not wau):
 - [x] Implement `Settings` merge (cli > file > defaults)
 - [x] `examples/config.toml` + `examples/theme.toml` match parser
 
-**Verify**: unit tests in `src/config/tests.rs`, `src/theme/tests.rs`, `src/settings/tests.rs`.
+**Verify**: unit tests in `src/config/tests.rs`, etc. (today at repo-root `src/`; after Phase 3, under `libtuigreet/src/`).
 
 ### Phase 2 — Minimal CLI + migration
 
-- [ ] Replace `getopts` with `clap`; wire `--config`, `--theme`, `--debug`
-- [ ] Map old CLI flags → config keys in `CHANGELOG.md` migration table
-- [ ] Delete deprecated `Greeter::options()` / `getopts::Matches` surface
+- [x] Replace `getopts` with `clap`; wire `--config`, `--theme`, `--debug`
+- [x] Map old CLI flags → config keys in `CHANGELOG.md` migration table
+- [x] Delete deprecated `Greeter::options()` / `getopts::Matches` surface
 
 **Verify**: `tuigreet --help`; integration tests load config from temp files.
 
-### Phase 3 — Strings + test layout
+### Phase 3 — Workspace layout (`libtuigreet` + `tuigreet` + `tests`), strings
 
-- [ ] Replace `fl!()` / i18n with `src/ui/strings.rs` (or `src/strings/`)
-- [ ] Move inline tests from `greeter.rs`, `info.rs`, etc. to sibling `tests.rs` files
-- [ ] Keep `src/ui/` free of config parsing; consume `Settings` / `Greeter` only
+- [ ] **Workspace restructure (wau-style)**: root `Cargo.toml` with `members = ["libtuigreet", "tuigreet", "tests"]`; split current `src/` into **`libtuigreet/`** + thin **`tuigreet/`** binary; update CI, `deny.toml`, doc paths
+- [ ] **`libtuigreet`**: move production modules + unit tests; `src/lib.rs` public API for binary and `tuigreet-tests`
+- [ ] **`tuigreet-tests`**: move **`src/integration/`** → **`tests/src/`**; `use libtuigreet::…`; delete `mod integration` from binary `main.rs`
+- [ ] Replace `fl!()` / i18n with `libtuigreet/src/ui/strings.rs`
+- [ ] Move any remaining inline tests in `libtuigreet/src/ui/` to sibling `tests.rs`
+- [ ] Keep `libtuigreet/src/ui/` free of config parsing; consume `Settings` / `Greeter` only
 
-**Verify**: existing UI/integration tests updated; greetd-stub flows pass.
+**Verify**: `cargo test --workspace` green; `cargo build -p tuigreet --release` produces the greeter binary; no `src/integration/` anywhere; `rg 'mod integration'` empty; `tests/` has no production modules.
 
 ### Phase 4 — Dependency upgrade
 
@@ -390,7 +438,7 @@ Workflows under `.github/workflows/` (names/paths **tuigreet**, not wau):
 
 ## 7. Definition of done (overhaul v1)
 
-- [ ] Crate builds with Phase 0–4 complete
+- [ ] Workspace builds with Phase 0–4 complete (`libtuigreet` + `tuigreet` + `tuigreet-tests`)
 - [ ] greetd login, session pick, power menus work via **config.toml** + **theme.toml**
 - [ ] No `build.rs`, no i18n crates, no `nix`, no `contrib/`, no `nsswrapper` feature
 - [ ] CI green on push/PR (§4.2 workflows, tuigreet naming)
@@ -413,8 +461,12 @@ When example shapes change, update `examples/*.toml` and `examples/cli.md` in th
 | Date       | Change                                                                                                                                                     |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-05-22 | Initial tuigreet overhaul plan derived from `WAU_RS_PLAN.md`; CI rename, drop i18n/build.rs, config/theme-first, rustix migration, two-crate target layout |
-| 2026-05-22 | Single-crate layout: keep one `tuigreet` binary; module boundaries only (no `libtuigreet`)                                                                 |
+| 2026-05-22 | Interim: single crate at repo root (Phase 1); Phase 3 splits into `libtuigreet` + `tuigreet` + `tests`                                                     |
 | 2026-05-22 | Phase 0 complete: CI hygiene, drop i18n/build.rs, English strings, rustix, quality gates green                                                             |
 | 2026-05-22 | Plan: drop `nsswrapper` feature and remove `contrib/` entirely; CI default-only                                                                            |
 | 2026-05-22 | Phase 0 complete: removed `contrib/`, `nsswrapper`, CI default-only matrix                                                                                 |
 | 2026-05-22 | Phase 1 complete: directory modules, config/theme/settings parsers and merge tests                                                                         |
+| 2026-05-22 | Plan: Phase 3 relocates misnamed `src/integration/` (test-only) to crate-root `tests/`                                                                     |
+| 2026-05-22 | Plan: wau-style workspace — root `Cargo.toml`, `tuigreet/` package, `tests/` member crate for integration only                                               |
+| 2026-05-22 | Plan: Phase 3 adds **`libtuigreet`** + thin **`tuigreet`** binary + **`tests/`** so integration harness can link without `src/integration/`                |
+| 2026-05-22 | Phase 2 complete: `clap` minimal CLI, `Settings` wired in `main`, removed `getopts` / `Greeter::options()`                                                 |

@@ -15,8 +15,8 @@ There are no subcommands.
 
 | Short | Long | Description |
 |-------|------|-------------|
-| `-h` | `--help` | Show usage and exit |
-| `-v` | `--version` | Print version (`CARGO_PKG_VERSION`) and exit |
+| `-h` | `--help` | Show usage and exit (provided by `clap`) |
+| `-V` | `--version` | Print version (`CARGO_PKG_VERSION`) and exit (provided by `clap`) |
 | | `--config PATH` | Load `config.toml` from `PATH` (overrides XDG/`/etc` search) |
 | | `--theme PATH` | Load `theme.toml` from `PATH` |
 | `-d` | `--debug [FILE]` | Enable tracing; optional log file (default from config or `/tmp/tuigreet.log`) |

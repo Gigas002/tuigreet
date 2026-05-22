@@ -1,5 +1,8 @@
+use std::path::PathBuf;
+
 use crate::{
     greeter::{Greeter, SecretDisplay},
+    settings::{CliOverrides, Settings},
     ui::sessions::SessionSource,
 };
 
@@ -33,102 +36,94 @@ fn test_set_prompt() {
 }
 
 #[tokio::test]
-#[allow(clippy::type_complexity)]
-async fn test_command_line_arguments() {
-    let table: &[(&[&str], _, Option<fn(&Greeter)>)] = &[
-        (&[], true, None),
-        (&["--cmd", "hello"], true, None),
-        (
-            &[
-                "--cmd",
-                "uname",
-                "--env",
-                "A=B",
-                "--env",
-                "C=D=E",
-                "--asterisks",
-                "--asterisks-char",
-                ".",
-                "--issue",
-                "--time",
-                "--prompt-padding",
-                "0",
-                "--window-padding",
-                "1",
-                "--container-padding",
-                "12",
-                "--user-menu",
-            ],
-            true,
-            Some(|greeter| {
-                assert!(
-                    matches!(&greeter.session_source, SessionSource::DefaultCommand(cmd, Some(env)) if cmd == "uname" && env.len() == 2)
-                );
+async fn apply_settings_from_example_config() {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("examples/config.toml");
+    let settings = Settings::load(&CliOverrides {
+        config: Some(path),
+        ..CliOverrides::default()
+    })
+    .unwrap();
 
-                if let SessionSource::DefaultCommand(_, Some(env)) = &greeter.session_source {
-                    assert_eq!(env[0], "A=B");
-                    assert_eq!(env[1], "C=D=E");
-                }
+    let mut greeter = Greeter::default();
+    greeter.apply_settings(&settings);
 
-                assert!(matches!(&greeter.secret_display, SecretDisplay::Character(c) if c == "."));
-                assert_eq!(greeter.prompt_padding(), 0);
-                assert_eq!(greeter.window_padding(), 1);
-                assert_eq!(greeter.container_padding(), 13);
-                assert!(greeter.user_menu);
-                assert!(matches!(
-                    greeter.xsession_wrapper.as_deref(),
-                    Some("startx /usr/bin/env")
-                ));
-            }),
-        ),
-        (
-            &["--xsession-wrapper", "mywrapper.sh"],
-            true,
-            Some(|greeter| {
-                assert!(matches!(
-                    greeter.xsession_wrapper.as_deref(),
-                    Some("mywrapper.sh")
-                ));
-            }),
-        ),
-        (
-            &["--no-xsession-wrapper"],
-            true,
-            Some(|greeter| {
-                assert!(greeter.xsession_wrapper.is_none());
-            }),
-        ),
-        (
-            &["--remember-session", "--remember-user-session"],
-            false,
-            None,
-        ),
-        (&["--asterisk-char", ""], false, None),
-        (&["--remember-user-session"], false, None),
-        (&["--min-uid", "10000", "--max-uid", "5000"], false, None),
-        (&["--issue", "--greeting", "Hello, world!"], false, None),
-        (&["--kb-command", "F2", "--kb-sessions", "F2"], false, None),
-        (&["--time-format", "%i %"], false, None),
-        (&["--cmd", "cmd", "--env"], false, None),
-        (&["--cmd", "cmd", "--env", "A"], false, None),
-    ];
+    assert_eq!(greeter.width, 80);
+    assert_eq!(greeter.container_padding, 2);
+    assert_eq!(greeter.prompt_padding, 1);
+    assert!(!greeter.user_menu);
+    assert!(matches!(
+        greeter.xsession_wrapper.as_deref(),
+        Some("startx /usr/bin/env")
+    ));
+}
 
-    for (opts, valid, check) in table {
-        let mut greeter = Greeter::default();
+#[tokio::test]
+async fn apply_settings_session_cmd_and_secrets() {
+    let dir = tempfile::tempdir().unwrap();
+    let config_path = dir.path().join("config.toml");
+    std::fs::write(
+        &config_path,
+        r#"
+[session]
+cmd = "uname"
+env = ["A=B", "C=D=E"]
 
-        match valid {
-            true => {
-                assert!(
-                    matches!(greeter.parse_options(opts).await, Ok(())),
-                    "{:?} cannot be parsed",
-                    opts
-                );
+[secrets]
+mask = true
+mask_char = "."
 
-                if let Some(check) = check {
-                    check(&greeter);
-                }
-            }
-            false => assert!(greeter.parse_options(opts).await.is_err()),
-        }
+[ui]
+window_padding = 1
+container_padding = 12
+prompt_padding = 0
+"#,
+    )
+    .unwrap();
+
+    let settings = Settings::load(&CliOverrides {
+        config: Some(config_path),
+        ..CliOverrides::default()
+    })
+    .unwrap();
+
+    let mut greeter = Greeter::default();
+    greeter.apply_settings(&settings);
+
+    assert!(
+        matches!(&greeter.session_source, SessionSource::DefaultCommand(cmd, Some(env)) if cmd == "uname" && env.len() == 2)
+    );
+    if let SessionSource::DefaultCommand(_, Some(env)) = &greeter.session_source {
+        assert_eq!(env[0], "A=B");
+        assert_eq!(env[1], "C=D=E");
     }
+
+    assert!(matches!(&greeter.secret_display, SecretDisplay::Character(c) if c == "."));
+    assert_eq!(greeter.window_padding, 1);
+    assert_eq!(greeter.container_padding, 13);
+    assert_eq!(greeter.prompt_padding, 0);
+}
+
+#[tokio::test]
+async fn apply_settings_no_xsession_wrapper() {
+    let dir = tempfile::tempdir().unwrap();
+    let config_path = dir.path().join("config.toml");
+    std::fs::write(
+        &config_path,
+        r#"
+[session]
+no_xsession_wrapper = true
+"#,
+    )
+    .unwrap();
+
+    let settings = Settings::load(&CliOverrides {
+        config: Some(config_path),
+        ..CliOverrides::default()
+    })
+    .unwrap();
+
+    let mut greeter = Greeter::default();
+    greeter.apply_settings(&settings);
+
+    assert!(greeter.xsession_wrapper.is_none());
 }

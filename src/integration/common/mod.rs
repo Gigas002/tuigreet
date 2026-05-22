@@ -3,6 +3,7 @@ mod output;
 
 use std::{
     panic,
+    path::PathBuf,
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -21,6 +22,7 @@ use tui::buffer::Buffer;
 
 use crate::{
     event::{Event, Events},
+    settings::{CliOverrides, Settings},
     ui::sessions::SessionSource,
     Greeter,
 };
@@ -49,12 +51,21 @@ impl Clone for IntegrationRunner {
 
 impl IntegrationRunner {
     pub async fn new(opts: SessionOptions, builder: Option<fn(&mut Greeter)>) -> IntegrationRunner {
-        IntegrationRunner::new_with_size(opts, builder, (200, 40)).await
+        Self::new_with_config(opts, builder, None, (200, 40)).await
     }
 
     pub async fn new_with_size(
         opts: SessionOptions,
         builder: Option<fn(&mut Greeter)>,
+        size: (u16, u16),
+    ) -> IntegrationRunner {
+        Self::new_with_config(opts, builder, None, size).await
+    }
+
+    pub async fn new_with_config(
+        opts: SessionOptions,
+        builder: Option<fn(&mut Greeter)>,
+        config: Option<PathBuf>,
         size: (u16, u16),
     ) -> IntegrationRunner {
         let socket = NamedTempFile::new().unwrap().into_temp_path().to_path_buf();
@@ -71,16 +82,18 @@ impl IntegrationRunner {
             }
         });
 
+        let settings = Settings::load(&CliOverrides {
+            config,
+            ..CliOverrides::default()
+        })
+        .expect("integration config must load");
+
         let client = tokio::task::spawn(async move {
-            let mut greeter = Greeter::new(events.sender()).await;
+            let mut greeter = Greeter::new(events.sender(), settings).await;
             greeter.session_source = SessionSource::Command("uname".to_string());
 
             if let Some(builder) = builder {
                 builder(&mut greeter);
-            }
-
-            if greeter.config.is_none() {
-                greeter.config = Greeter::options().parse(&[""]).ok();
             }
 
             greeter.logfile = "/tmp/tuigreet.log".to_string();

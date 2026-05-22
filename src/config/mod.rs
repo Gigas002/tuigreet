@@ -1,5 +1,4 @@
 //! `config.toml` types, path resolution, and validation.
-#![allow(dead_code)] // Consumed by `settings` and Greeter in Phase 2.
 
 use std::{
     io,

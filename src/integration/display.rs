@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use chrono::Local;
 use libgreetd_stub::SessionOptions;
+use tempfile::tempdir;
 
 use super::common::IntegrationRunner;
 
@@ -63,6 +64,40 @@ async fn show_wrapped_greet() {
             assert!(output.contains("│    Lorem ipsum   │"));
             assert!(output.contains("│  dolor sit amet  │"));
             assert!(output.contains("└──────────────────┘"));
+        }
+    });
+
+    runner.join_until_end(events).await;
+}
+
+#[tokio::test]
+async fn show_greeting_from_config_file() {
+    let dir = tempdir().unwrap();
+    let config_path = dir.path().join("config.toml");
+    std::fs::write(
+        &config_path,
+        r#"
+[ui]
+greeting = "Configured greeting"
+"#,
+    )
+    .unwrap();
+
+    let opts = SessionOptions {
+        username: "apognu".to_string(),
+        password: "password".to_string(),
+        mfa: false,
+    };
+
+    let mut runner =
+        IntegrationRunner::new_with_config(opts, None, Some(config_path), (200, 40)).await;
+
+    let events = tokio::task::spawn({
+        let mut runner = runner.clone();
+
+        async move {
+            runner.wait_for_render().await;
+            assert!(runner.output().await.contains("Configured greeting"));
         }
     });
 

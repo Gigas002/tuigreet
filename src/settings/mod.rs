@@ -1,5 +1,4 @@
 //! Merged runtime settings: CLI overrides > config/theme files > built-in defaults.
-#![allow(dead_code)] // Wired into `main` / Greeter in Phase 2.
 
 use std::path::{Path, PathBuf};
 
@@ -12,7 +11,7 @@ use crate::{
 #[cfg(test)]
 mod tests;
 
-/// CLI overrides (Phase 2 will populate this from `clap`).
+/// CLI overrides parsed by `clap` in `main`.
 #[derive(Debug, Default, Clone)]
 pub struct CliOverrides {
     pub config: Option<PathBuf>,
