@@ -632,6 +632,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68ab91017fe16c622486840e4c83c9a37afeff978bd239b5293d61ece587de66"
 
 [[package]]
+name = "libtuigreet"
+version = "0.9.1"
+dependencies = [
+ "chrono",
+ "crossterm",
+ "futures",
+ "greetd_ipc",
+ "rust-ini",
+ "rustix 0.38.44",
+ "smart-default",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "tracing-appender",
+ "utmp-rs",
+ "uzers",
+ "zeroize",
+]
+
+[[package]]
 name = "linux-raw-sys"
 version = "0.4.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1408,15 +1428,11 @@ dependencies = [
  "chrono",
  "clap",
  "crossterm",
- "futures",
- "greetd-stub",
  "greetd_ipc",
+ "libtuigreet",
  "rand",
  "ratatui",
- "rust-ini",
- "rustix 0.38.44",
  "serde",
- "smart-default",
  "tempfile",
  "thiserror 1.0.69",
  "tokio",
@@ -1424,10 +1440,21 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "tuigreet-tests"
+version = "0.9.1"
+dependencies = [
+ "chrono",
+ "crossterm",
+ "greetd-stub",
+ "libtuigreet",
+ "ratatui",
+ "tempfile",
+ "tokio",
+ "tuigreet",
  "unicode-width 0.1.14",
- "utmp-rs",
- "uzers",
- "zeroize",
 ]
 
 [[package]]

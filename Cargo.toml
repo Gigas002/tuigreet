@@ -1,46 +1,6 @@
-[package]
-name = "tuigreet"
-version = "0.9.1"
-edition = "2018"
-license = "GPL-3.0-or-later"
-
-[dependencies]
-serde = { version = "1", features = ["derive"] }
-thiserror = "1"
-toml = "0.8"
-ansi-to-tui = "5.0.0-rc.1"
-chrono = "0.4"
-crossterm = { version = "0.27", features = ["event-stream"] }
-futures = "0.3"
-clap = { version = "4", features = ["derive"] }
-greetd_ipc = { version = "0.10", features = ["tokio-codec"] }
-rustix = { version = "0.38", features = ["system"] }
-tui = { package = "ratatui", version = "0.27", default-features = false, features = [
-  "crossterm",
-  "unstable"
-] }
-rust-ini = "0.21"
-smart-default = "0.7"
-tokio = { version = "1", default-features = false, features = [
-  "macros",
-  "rt-multi-thread",
-  "net",
-  "sync",
-  "time",
-  "process",
-] }
-zeroize = "1"
-uzers = "0.12"
-rand = "0.8"
-tracing-appender = "0.2"
-tracing-subscriber = "0.3"
-tracing = "0.1"
-utmp-rs = "0.3"
+[workspace]
+members = ["libtuigreet", "tuigreet", "tests"]
+resolver = "3"
 
 [profile.release]
 lto = true
-
-[dev-dependencies]
-greetd-stub = "0.3"
-tempfile = "3"
-unicode-width = "0.1"

@@ -40,8 +40,8 @@ jobs:
       - name: Run tests
         run: cargo test --workspace --verbose
 
-      - name: Generate coverage report (tuigreet)
-        run: cargo llvm-cov -p tuigreet --lcov --output-path lcov-tuigreet.info
+      - name: Generate coverage report (libtuigreet)
+        run: cargo llvm-cov -p libtuigreet --lcov --output-path lcov-tuigreet.info
 
       - name: Upload tuigreet coverage to Codecov
         uses: codecov/codecov-action@v6

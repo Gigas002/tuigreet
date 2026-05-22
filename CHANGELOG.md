@@ -4,6 +4,8 @@
 
 ### Changed
 
+- Workspace layout (wau-style): `libtuigreet` (greetd core + unit tests), `tuigreet` (CLI/config/theme/settings/logger/UI + binary), `tuigreet-tests` (greetd-stub integration). Root `src/` removed.
+- Crate split: TOML parsing, settings, app loop, logger, and ratatui UI live in **`tuigreet`**; greetd IPC, greeter state, and keyboard live in **`libtuigreet`**.
 - CLI is minimal (`clap`): `--help`, `--version`, `--config`, `--theme`, `--debug` only. All former greeter flags live in `config.toml` / `theme.toml` (see migration table below).
 
 - CI: wau-style workflows renamed for the `tuigreet` package (`build`, `test`, `fmt-clippy`, `doc`, `typos`, `deny`, `deploy`).
