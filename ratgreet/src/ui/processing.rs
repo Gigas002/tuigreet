@@ -2,17 +2,22 @@ use std::error::Error;
 
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
-    text::Span,
     widgets::{Block, BorderType, Borders, Paragraph},
 };
 
 use libratgreet::Greeter;
 
-use crate::ui::{Frame, common::style::Theme, strings, util::*};
+use crate::ui::{
+    Frame,
+    common::style::{Theme, Themed},
+    strings,
+    themed_text,
+    util::*,
+};
 
 pub fn draw(
     greeter: &mut Greeter,
-    _theme: &Theme,
+    theme: &Theme,
     f: &mut Frame,
 ) -> Result<(u16, u16), Box<dyn Error>> {
     let size = f.area();
@@ -33,7 +38,9 @@ pub fn draw(
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_type(BorderType::Plain);
+        .border_type(BorderType::Plain)
+        .style(theme.of(&[Themed::Container]))
+        .border_style(theme.of(&[Themed::Border]));
 
     let constraints = [Constraint::Length(1)];
 
@@ -41,7 +48,7 @@ pub fn draw(
         .direction(Direction::Vertical)
         .constraints(constraints.as_ref())
         .split(frame);
-    let text = Span::from(strings::get("wait"));
+    let text = themed_text(theme, strings::get("wait"));
     let paragraph = Paragraph::new(text).alignment(Alignment::Center);
 
     f.render_widget(paragraph, chunks[0]);

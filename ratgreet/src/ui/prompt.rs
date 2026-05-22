@@ -9,7 +9,7 @@ use ratatui::{
 use crate::ui::{
     Frame,
     common::style::{Theme, Themed},
-    prompt_value, strings,
+    prompt_value, strings, themed_text,
     util::*,
 };
 use libratgreet::{
@@ -56,7 +56,7 @@ pub fn draw(
 
     f.render_widget(block, container);
 
-    let (message, message_height) = get_message_height(greeter, container_padding, 1);
+    let (message, message_height) = get_message_height(greeter, theme, container_padding, 1);
     let (greeting, greeting_height) = get_greeting_height(greeter, container_padding, 0);
 
     let should_display_answer = greeter.mode == Mode::Password;
@@ -108,7 +108,7 @@ pub fn draw(
             );
 
             let answer_text = if greeter.working {
-                Span::from(strings::get("wait"))
+                themed_text(theme, strings::get("wait"))
             } else {
                 prompt_value(theme, greeter.prompt.as_ref())
             };

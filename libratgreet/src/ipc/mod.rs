@@ -72,6 +72,10 @@ impl Ipc {
 
             self.parse_response(&mut *greeter.write().await, response)
                 .await?;
+
+            if let Some(sender) = greeter.read().await.events.clone() {
+                let _ = sender.send(Event::Render).await;
+            }
         }
 
         Ok(())

@@ -43,15 +43,15 @@ impl Events {
                 #[cfg(all(not(test), not(feature = "test-harness")))]
                 loop {
                     if crossterm::event::poll(frame_duration).unwrap_or(false) {
-                        while let Ok(event) = crossterm::event::read() {
-                            if let crossterm::event::Event::Key(key) = event {
+                        while crossterm::event::poll(Duration::ZERO).unwrap_or(false) {
+                            if let Ok(crossterm::event::Event::Key(key)) =
+                                crossterm::event::read()
+                            {
                                 let _ = tx.send(Event::Key(key)).await;
-                                let _ = tx.send(Event::Render).await;
                             }
                         }
-                    } else {
-                        let _ = tx.send(Event::Render).await;
                     }
+                    let _ = tx.send(Event::Render).await;
                 }
             }
         });

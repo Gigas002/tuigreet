@@ -5,6 +5,8 @@ use ratatui::{
 
 use libratgreet::{Greeter, greeter::Mode};
 
+use crate::ui::common::style::{Theme, Themed};
+
 pub fn titleize(message: &str) -> String {
     format!(" {message} ")
 }
@@ -134,14 +136,17 @@ pub fn get_greeting_height(
     }
 }
 
-pub fn get_message_height(
-    greeter: &Greeter,
+pub fn get_message_height<'a>(
+    greeter: &'a Greeter,
+    theme: &'a Theme,
     padding: u16,
     fallback: u16,
-) -> (Option<Paragraph<'_>>, u16) {
+) -> (Option<Paragraph<'a>>, u16) {
     if let Some(message) = &greeter.message {
         let width = greeter.width();
-        let paragraph = Paragraph::new(message.trim_end()).wrap(Wrap { trim: true });
+        let paragraph = Paragraph::new(message.trim_end())
+            .wrap(Wrap { trim: true })
+            .style(theme.of(&[Themed::Text]));
         let height = paragraph.line_count(width - 4);
 
         (Some(paragraph), height as u16 + padding)

@@ -221,3 +221,10 @@ where
         None => Span::from(""),
     }
 }
+
+fn themed_text<'s, S>(theme: &Theme, text: S) -> Span<'s>
+where
+    S: Into<String>,
+{
+    Span::styled(text.into(), theme.of(&[Themed::Text]))
+}

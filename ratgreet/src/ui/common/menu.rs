@@ -3,7 +3,7 @@ use std::error::Error;
 use libratgreet::{Greeter, model::menu::MenuItem};
 use ratatui::{
     prelude::Rect,
-    style::{Modifier, Style},
+    style::Modifier,
     text::Span,
     widgets::{Block, BorderType, Borders, Paragraph},
 };
@@ -52,7 +52,7 @@ where
             let name = format!("{:1$}", name, greeter.width() as usize - 4);
 
             let frame = Rect::new(x + 2, y + 2 + index as u16, width - 4, 1);
-            let option_text = menu_option_span(self.selected == index, name);
+            let option_text = menu_option_span(theme, self.selected == index, name);
             let option = Paragraph::new(option_text);
 
             f.render_widget(option, frame);
@@ -64,16 +64,15 @@ where
     }
 }
 
-fn menu_option_span<'g, S>(selected: bool, name: S) -> Span<'g>
+fn menu_option_span<'g, S>(theme: &Theme, selected: bool, name: S) -> Span<'g>
 where
     S: Into<String>,
 {
+    let style = theme.of(&[Themed::Text]);
+
     if selected {
-        Span::styled(
-            name.into(),
-            Style::default().add_modifier(Modifier::REVERSED),
-        )
+        Span::styled(name.into(), style.add_modifier(Modifier::REVERSED))
     } else {
-        Span::from(name.into())
+        Span::styled(name.into(), style)
     }
 }
