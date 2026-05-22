@@ -11,7 +11,7 @@ Reference plan:
 **Example artifacts** (schemas + minimal CLI) live under `examples/`:
 
 - `examples/config.toml` — greetd paths, sessions, layout, power, keybindings, logging
-- `examples/theme.toml` — TUI colors and style overrides
+- `examples/theme.toml` — layout, banner, clock, and colors
 - `examples/cli.md` — retained CLI surface (help, version, config/theme paths, debug)
 
 ---
@@ -247,17 +247,6 @@ session_wrapper = "…"
 xsession_wrapper = "startx /usr/bin/env"
 no_xsession_wrapper = false
 
-[ui]
-width = 80
-window_padding = 0
-container_padding = 1
-prompt_padding = 1
-greet_align = "center"  # left | center | right
-show_time = false
-time_format = "%c"
-issue = false           # mutually exclusive with greeting
-greeting = "Welcome"
-
 [secrets]
 display = "masked"      # hidden | plain | masked (default; was --asterisks)
 mask_char = "*"         # single character when display = "masked"
@@ -275,9 +264,20 @@ no_setsid = false
 
 ### 3.2 Theme (`theme.toml`)
 
-Purpose: colors for `Themed::*` roles. Replaces `--theme container=…;title=…`.
+Purpose: layout, banner, clock (`[ui]`) and colors for `Themed::*` roles (`[colors]`). Replaces `--theme container=…;title=…` and former `[ui]` in config.
 
 ```toml
+[ui]
+width = 80
+window_padding = 0
+container_padding = 1
+prompt_padding = 1
+greet_align = "center"  # left | center | right
+show_time = false
+time_format = "%c"
+issue = false           # mutually exclusive with greeting
+greeting = "Welcome"
+
 [colors]
 container = "blue"
 time = "white"
@@ -414,8 +414,8 @@ Workflows under `.github/workflows/` (names/paths **ratgreet**, not wau):
 | -------------------------------------------------- | ---------------------------------- |
 | `--cmd`, `--env`                                   | `[session]`                        |
 | `--sessions`, `--xsessions`, wrappers              | `[session]`                        |
-| `--width`, `*-padding`, `--greet-align`            | `[ui]`                             |
-| `--issue`, `--greeting`, `--time`, `--time-format` | `[ui]`                             |
+| `--width`, `*-padding`, `--greet-align`            | `theme.toml` `[ui]`                |
+| `--issue`, `--greeting`, `--time`, `--time-format` | `theme.toml` `[ui]`                |
 | `--remember*`                                      | removed (manual login every time)  |
 | `--user-menu*`                                     | removed (manual username entry)    |
 | `--asterisks*`                                     | `[secrets]`                        |

@@ -71,11 +71,11 @@ async fn show_wrapped_greet() {
 }
 
 #[tokio::test]
-async fn show_greeting_from_config_file() {
+async fn show_greeting_from_theme_file() {
     let dir = tempdir().unwrap();
-    let config_path = dir.path().join("config.toml");
+    let theme_path = dir.path().join("theme.toml");
     std::fs::write(
-        &config_path,
+        &theme_path,
         r#"
 [ui]
 greeting = "Configured greeting"
@@ -90,7 +90,7 @@ greeting = "Configured greeting"
     };
 
     let mut runner =
-        IntegrationRunner::new_with_config(opts, None, Some(config_path), (200, 40)).await;
+        IntegrationRunner::new_with_config(opts, None, None, Some(theme_path), (200, 40)).await;
 
     let events = tokio::task::spawn({
         let mut runner = runner.clone();

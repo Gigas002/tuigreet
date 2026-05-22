@@ -15,12 +15,12 @@ use crate::config::SecretDisplayMode;
 use crate::settings::{SessionKind, Settings};
 use crate::ui::strings;
 
-impl From<crate::config::GreetAlign> for GreetAlign {
-    fn from(value: crate::config::GreetAlign) -> Self {
+impl From<crate::theme::GreetAlign> for GreetAlign {
+    fn from(value: crate::theme::GreetAlign) -> Self {
         match value {
-            crate::config::GreetAlign::Left => GreetAlign::Left,
-            crate::config::GreetAlign::Center => GreetAlign::Center,
-            crate::config::GreetAlign::Right => GreetAlign::Right,
+            crate::theme::GreetAlign::Left => GreetAlign::Left,
+            crate::theme::GreetAlign::Center => GreetAlign::Center,
+            crate::theme::GreetAlign::Right => GreetAlign::Right,
         }
     }
 }

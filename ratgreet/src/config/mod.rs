@@ -21,8 +21,6 @@ pub struct Config {
     #[serde(default)]
     pub session: Session,
     #[serde(default)]
-    pub ui: Ui,
-    #[serde(default)]
     pub secrets: Secrets,
     #[serde(default)]
     pub keybindings: Keybindings,
@@ -62,35 +60,6 @@ pub struct Session {
     pub xsession_wrapper: String,
     #[serde(default)]
     pub no_xsession_wrapper: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Ui {
-    #[serde(default = "default_width")]
-    pub width: u16,
-    #[serde(default)]
-    pub window_padding: u16,
-    #[serde(default = "default_container_padding")]
-    pub container_padding: u16,
-    #[serde(default = "default_prompt_padding")]
-    pub prompt_padding: u16,
-    #[serde(default)]
-    pub greet_align: GreetAlign,
-    #[serde(default)]
-    pub show_time: bool,
-    pub time_format: Option<String>,
-    #[serde(default)]
-    pub issue: bool,
-    pub greeting: Option<String>,
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum GreetAlign {
-    Left,
-    #[default]
-    Center,
-    Right,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -154,18 +123,6 @@ fn default_x11_dirs() -> Vec<PathBuf> {
 
 fn default_xsession_wrapper() -> String {
     DEFAULT_XSESSION_WRAPPER.to_string()
-}
-
-fn default_width() -> u16 {
-    80
-}
-
-fn default_container_padding() -> u16 {
-    1
-}
-
-fn default_prompt_padding() -> u16 {
-    1
 }
 
 fn default_mask_char() -> String {
@@ -329,7 +286,6 @@ impl Default for Config {
         Self {
             logging: Logging::default(),
             session: Session::default(),
-            ui: Ui::default(),
             secrets: Secrets::default(),
             keybindings: Keybindings::default(),
             power: Power::default(),
@@ -351,22 +307,6 @@ impl Default for Session {
     }
 }
 
-impl Default for Ui {
-    fn default() -> Self {
-        Self {
-            width: default_width(),
-            window_padding: 0,
-            container_padding: default_container_padding(),
-            prompt_padding: default_prompt_padding(),
-            greet_align: GreetAlign::default(),
-            show_time: false,
-            time_format: None,
-            issue: false,
-            greeting: None,
-        }
-    }
-}
-
 impl Default for Keybindings {
     fn default() -> Self {
         Self {
@@ -379,12 +319,6 @@ impl Default for Keybindings {
 
 impl Config {
     pub fn validate(&self) -> Result<(), ConfigError> {
-        if self.ui.issue && self.ui.greeting.is_some() {
-            return Err(ConfigError::Validation(
-                "only one of [ui].issue and [ui].greeting may be set".into(),
-            ));
-        }
-
         if self.secrets.display == SecretDisplayMode::Masked
             && self.secrets.mask_char.chars().count() != 1
         {
@@ -409,15 +343,6 @@ impl Config {
             if !(1..=12).contains(&key) {
                 return Err(ConfigError::Validation(
                     "[keybindings] values must be between 1 and 12".into(),
-                ));
-            }
-        }
-
-        if let Some(format) = &self.ui.time_format {
-            use chrono::format::{Item, StrftimeItems};
-            if StrftimeItems::new(format).any(|item| item == Item::Error) {
-                return Err(ConfigError::Validation(
-                    "invalid strftime format in [ui].time_format".into(),
                 ));
             }
         }

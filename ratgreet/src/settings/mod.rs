@@ -3,8 +3,8 @@
 use std::path::{Path, PathBuf};
 
 use crate::{
-    config::{self, Config, ConfigError, GreetAlign, LogLevel},
-    theme::{self, ThemeError},
+    config::{self, Config, ConfigError, LogLevel},
+    theme::{self, GreetAlign, ThemeError, ThemeFile},
     ui::common::style::Theme,
 };
 
@@ -118,13 +118,14 @@ impl Settings {
         let config_path = resolved_config_path(cli.config.as_deref());
         let theme_path = resolved_theme_path(cli.theme.as_deref());
 
-        let mut settings = Self::from_config(config, theme, config_path, theme_path);
+        let mut settings = Self::from_layers(config, theme_file, theme, config_path, theme_path);
         settings.apply_cli(cli);
         Ok(settings)
     }
 
-    fn from_config(
+    fn from_layers(
         config: Config,
+        theme_file: ThemeFile,
         theme: Theme,
         config_path: Option<PathBuf>,
         theme_path: Option<PathBuf>,
@@ -162,15 +163,15 @@ impl Settings {
                 session_paths,
             },
             ui: UiSettings {
-                width: config.ui.width,
-                window_padding: config.ui.window_padding,
-                container_padding: config.ui.container_padding,
-                prompt_padding: config.ui.prompt_padding,
-                greet_align: config.ui.greet_align,
-                show_time: config.ui.show_time,
-                time_format: config.ui.time_format,
-                issue: config.ui.issue,
-                greeting: config.ui.greeting,
+                width: theme_file.ui.width,
+                window_padding: theme_file.ui.window_padding,
+                container_padding: theme_file.ui.container_padding,
+                prompt_padding: theme_file.ui.prompt_padding,
+                greet_align: theme_file.ui.greet_align,
+                show_time: theme_file.ui.show_time,
+                time_format: theme_file.ui.time_format.clone(),
+                issue: theme_file.ui.issue,
+                greeting: theme_file.ui.greeting.clone(),
             },
             secrets: SecretsSettings {
                 display: config.secrets.display,

@@ -18,6 +18,66 @@ mod tests;
 pub struct ThemeFile {
     #[serde(default)]
     pub colors: ThemeColors,
+    #[serde(default)]
+    pub ui: ThemeUi,
+}
+
+/// Layout, banner, and clock (visual presentation — lives in `theme.toml`, not `config.toml`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThemeUi {
+    #[serde(default = "default_width")]
+    pub width: u16,
+    #[serde(default)]
+    pub window_padding: u16,
+    #[serde(default = "default_container_padding")]
+    pub container_padding: u16,
+    #[serde(default = "default_prompt_padding")]
+    pub prompt_padding: u16,
+    #[serde(default)]
+    pub greet_align: GreetAlign,
+    #[serde(default)]
+    pub show_time: bool,
+    pub time_format: Option<String>,
+    #[serde(default)]
+    pub issue: bool,
+    pub greeting: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum GreetAlign {
+    Left,
+    #[default]
+    Center,
+    Right,
+}
+
+fn default_width() -> u16 {
+    80
+}
+
+fn default_container_padding() -> u16 {
+    1
+}
+
+fn default_prompt_padding() -> u16 {
+    1
+}
+
+impl Default for ThemeUi {
+    fn default() -> Self {
+        Self {
+            width: default_width(),
+            window_padding: 0,
+            container_padding: default_container_padding(),
+            prompt_padding: default_prompt_padding(),
+            greet_align: GreetAlign::default(),
+            show_time: false,
+            time_format: None,
+            issue: false,
+            greeting: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -47,6 +107,9 @@ pub enum ThemeError {
 
     #[error("invalid color '{name}': {value}")]
     InvalidColor { name: String, value: String },
+
+    #[error("{0}")]
+    Validation(String),
 }
 
 pub fn system_path() -> PathBuf {
@@ -175,6 +238,21 @@ pub fn parse(s: &str) -> Result<ThemeFile, ThemeError> {
 
 impl ThemeFile {
     pub fn validate(&self) -> Result<(), ThemeError> {
+        if self.ui.issue && self.ui.greeting.is_some() {
+            return Err(ThemeError::Validation(
+                "only one of [ui].issue and [ui].greeting may be set".into(),
+            ));
+        }
+
+        if let Some(format) = &self.ui.time_format {
+            use chrono::format::{Item, StrftimeItems};
+            if StrftimeItems::new(format).any(|item| item == Item::Error) {
+                return Err(ThemeError::Validation(
+                    "invalid strftime format in [ui].time_format".into(),
+                ));
+            }
+        }
+
         let fields = [
             ("container", &self.colors.container),
             ("time", &self.colors.time),

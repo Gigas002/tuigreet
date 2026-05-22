@@ -3,6 +3,8 @@
 # Install as /etc/ratgreet/config.toml (packagers) or ~/.config/ratgreet/config.toml.
 # Resolution: built-in defaults → /etc → XDG user → --config PATH (see examples/cli.md).
 # Missing, invalid, or empty files are ignored; built-in defaults are used instead.
+#
+# Layout, colors, banner, and clock: see theme.toml ([ui] and [colors]).
 
 # ---------------------------------------------------------------------------
 # Logging (used when --debug is passed, or for future tracing defaults)
@@ -25,42 +27,17 @@ level = "info"
 # env = ["MOZ_ENABLE_WAYLAND=1"]
 
 # Directories scanned for .desktop session files (F3 menu).
-wayland_dirs = ["/usr/share/wayland-sessions"]
-x11_dirs = ["/usr/share/xsessions"]
+# wayland_dirs = ["/usr/share/wayland-sessions"]
+# x11_dirs = ["/usr/share/xsessions"]
 
 # Optional prefix for Wayland session Exec= lines (rare; DE-specific wrappers).
 # session_wrapper = "/path/to/wayland-wrap"
 
 # Prefix for X11 session Exec= lines so startx launches an X server first.
-xsession_wrapper = "startx /usr/bin/env"
+# xsession_wrapper = "startx /usr/bin/env"
 # If true: do not prepend xsession_wrapper; run the .desktop command as-is.
 # X11 sessions are still listed — this only disables the startx wrapper.
-no_xsession_wrapper = false
-
-# ---------------------------------------------------------------------------
-# UI: layout, banner above the prompt, clock
-# ---------------------------------------------------------------------------
-[ui]
-# Width of the main login box (columns).
-width = 80
-# Padding around the outer terminal area and inside the login box.
-window_padding = 0
-container_padding = 1
-prompt_padding = 1
-# Banner text alignment: left | center | right
-greet_align = "center"
-
-# Clock on the top line of the screen (outside the login box).
-show_time = false
-# strftime format when show_time = true (chrono syntax).
-# time_format = "%c"
-
-# Banner above "Username:" — pick at most one of issue or greeting.
-# issue = true reads and expands /etc/issue (hostname, tty, uname escapes, etc.).
-# greeting = "Welcome" uses fixed custom text.
-# If both are off, no banner is shown.
-issue = false
-# greeting = "Welcome"
+# no_xsession_wrapper = false
 
 # ---------------------------------------------------------------------------
 # Secrets: how passwords and PAM challenges are displayed
@@ -69,7 +46,7 @@ issue = false
 # hidden: show nothing while typing
 # plain: show characters as typed
 # masked: show mask_char for each character (default)
-# display = "masked"
+display = "masked"
 mask_char = "*"
 
 # ---------------------------------------------------------------------------

@@ -35,8 +35,8 @@
 | --- | --- |
 | `--cmd`, `--env` | `[session]` |
 | `--sessions`, `--xsessions`, `--session-wrapper`, `--xsession-wrapper`, `--no-xsession-wrapper` | `[session]` |
-| `--width`, `--window-padding`, `--container-padding`, `--prompt-padding`, `--greet-align` | `[ui]` |
-| `--issue`, `--greeting`, `--time`, `--time-format` | `[ui]` |
+| `--width`, `--window-padding`, `--container-padding`, `--prompt-padding`, `--greet-align` | `theme.toml` `[ui]` |
+| `--issue`, `--greeting`, `--time`, `--time-format` | `theme.toml` `[ui]` |
 | `--remember`, `--remember-session`, `--remember-user-session` | removed (manual login every time) |
 | `--user-menu`, `--user-menu-min-uid`, `--user-menu-max-uid` | removed (type username manually) |
 | `--asterisks`, `--asterisks-char` | `[secrets].display` (`plain` / `hidden` / `masked`) + `mask_char` |

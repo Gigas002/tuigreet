@@ -4,16 +4,21 @@ Terminal greeter for [greetd](https://git.sr.ht/~kennylevinsen/greetd). Built wi
 
 ## Overview
 
-ratgreet connects to greetd over a Unix socket, draws a TUI login prompt, and starts the configured session. Behavior is defined in **`config.toml`**; colors in **`theme.toml`**. The binary only accepts **`--config`**, **`--theme`**, and **`--debug`** (plus `--help` / `--version`).
+ratgreet connects to greetd over a Unix socket, draws a TUI login prompt, and starts the configured session. The binary only accepts **`--config`**, **`--theme`**, and **`--debug`** (plus `--help` / `--version`).
 
-Invalid or missing config/theme files are skipped; the greeter falls back to built-in defaults and keeps running (warnings appear when tracing is enabled).
+**You do not need to ship config or theme files.** With no `--config` / `--theme` flags and no files under `/etc/ratgreet/` or `~/.config/ratgreet/`, ratgreet runs on **built-in defaults** (login prompt, default keybindings, and so on). Optional TOML is only for operators who want to change behavior or appearance:
+
+- **`config.toml`** — sessions, secrets, keybindings, power commands, logging defaults
+- **`theme.toml`** — layout, banner, clock, colors
+
+Missing, unreadable, invalid, or **empty** config/theme files are skipped; the greeter keeps running with defaults (warnings may appear when tracing is enabled). Set only the keys you care about; everything else stays at the default.
 
 **Reference docs (commented examples):**
 
 | File                                           | Contents                                   |
 | ---------------------------------------------- | ------------------------------------------ |
-| [`examples/config.toml`](examples/config.toml) | Sessions, UI, secrets, keybindings, power  |
-| [`examples/theme.toml`](examples/theme.toml)   | Color roles, ANSI names, hex syntax        |
+| [`examples/config.toml`](examples/config.toml) | Sessions, secrets, keybindings, power      |
+| [`examples/theme.toml`](examples/theme.toml)   | Layout, banner, clock, colors              |
 | [`examples/cli.md`](examples/cli.md)           | CLI flags, file resolution, greetd snippet |
 
 ## Development
@@ -38,12 +43,16 @@ greetd-stub -s /tmp/greetd.sock --user alice:secret
 **Terminal 2:**
 
 ```bash
+# Defaults only — no config/theme files required:
+GREETD_SOCK=/tmp/greetd.sock cargo run -p ratgreet
+
+# Or try the commented examples:
 GREETD_SOCK=/tmp/greetd.sock cargo run -p ratgreet -- \
   --config examples/config.toml \
   --theme examples/theme.toml
 ```
 
-Debug builds run `true` after login; release builds need `[session] cmd` in config. See [`examples/cli.md`](examples/cli.md).
+Debug builds run `true` after login; release builds need `[session] cmd` in config when you add one. See [`examples/cli.md`](examples/cli.md).
 
 The `test-harness` Cargo feature is enabled only by the `ratgreet-tests` crate for in-memory integration tests — not for packagers or manual runs.
 

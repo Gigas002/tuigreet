@@ -54,7 +54,7 @@ impl Clone for IntegrationRunner {
 
 impl IntegrationRunner {
     pub async fn new(opts: SessionOptions, builder: Option<fn(&mut Greeter)>) -> IntegrationRunner {
-        Self::new_with_config(opts, builder, None, (200, 40)).await
+        Self::new_with_config(opts, builder, None, None, (200, 40)).await
     }
 
     pub async fn new_with_size(
@@ -62,13 +62,14 @@ impl IntegrationRunner {
         builder: Option<fn(&mut Greeter)>,
         size: (u16, u16),
     ) -> IntegrationRunner {
-        Self::new_with_config(opts, builder, None, size).await
+        Self::new_with_config(opts, builder, None, None, size).await
     }
 
     pub async fn new_with_config(
         opts: SessionOptions,
         builder: Option<fn(&mut Greeter)>,
         config: Option<PathBuf>,
+        theme: Option<PathBuf>,
         size: (u16, u16),
     ) -> IntegrationRunner {
         let socket = NamedTempFile::new().unwrap().into_temp_path().to_path_buf();
@@ -87,6 +88,7 @@ impl IntegrationRunner {
 
         let settings = Settings::load(&CliOverrides {
             config,
+            theme,
             ..CliOverrides::default()
         })
         .expect("integration config must load");

@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 
 use super::*;
-use crate::config::{GreetAlign, LogLevel};
+use crate::config::LogLevel;
+use crate::theme::GreetAlign;
 
 const EXAMPLE_CONFIG: &str = include_str!("../../../examples/config.toml");
 const EXAMPLE_THEME: &str = include_str!("../../../examples/theme.toml");
@@ -12,6 +13,7 @@ fn load_defaults_without_files() {
     assert_eq!(settings.ui.width, 80);
     assert_eq!(settings.keybindings.power, 12);
     assert!(!settings.logging.debug);
+    assert!(!settings.ui.show_time);
 }
 
 #[test]
@@ -42,6 +44,7 @@ fn load_from_explicit_config_and_theme_paths() {
     let settings = Settings::load(&cli).unwrap();
     assert_eq!(settings.ui.width, 80);
     assert_eq!(settings.ui.greet_align, GreetAlign::Center);
+    assert!(settings.ui.show_time);
     assert_eq!(settings.logging.level, LogLevel::Info);
     assert_eq!(
         settings.session.xsession_wrapper.as_deref(),
@@ -67,14 +70,15 @@ fn bad_explicit_theme_path_falls_back_to_defaults() {
     };
     let settings = Settings::load(&cli).unwrap();
     assert_eq!(settings.ui.width, 80);
+    assert!(!settings.ui.show_time);
 }
 
 #[test]
-fn cli_config_path_wins_over_defaults() {
+fn cli_theme_path_wins_over_defaults() {
     let dir = tempfile::tempdir().unwrap();
-    let config_path = dir.path().join("config.toml");
+    let theme_path = dir.path().join("theme.toml");
     std::fs::write(
-        &config_path,
+        &theme_path,
         r#"
 [ui]
 width = 120
@@ -83,11 +87,11 @@ width = 120
     .unwrap();
 
     let cli = CliOverrides {
-        config: Some(config_path.clone()),
+        theme: Some(theme_path.clone()),
         ..CliOverrides::default()
     };
 
     let settings = Settings::load(&cli).unwrap();
     assert_eq!(settings.ui.width, 120);
-    assert_eq!(settings.config_path, Some(config_path));
+    assert_eq!(settings.theme_path, Some(theme_path));
 }
