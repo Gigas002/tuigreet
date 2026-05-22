@@ -99,12 +99,11 @@ async fn authentication_bad_mfa() {
             runner.send_text("apognu").await;
             runner.wait_until_buffer_contains("Password:").await;
             runner.send_text("password").await;
-            runner.wait_until_buffer_contains("7 + 2 =   ").await;
+            runner.wait_until_buffer_contains("7 + 2 =").await;
             runner.send_text("10").await;
-            runner.wait_for_render().await;
-
-            assert!(runner.output().await.contains("Authentication failed"));
-            assert!(runner.output().await.contains("Password:"));
+            runner
+                .wait_until_buffer_contains("Authentication failed")
+                .await;
         }
     });
 

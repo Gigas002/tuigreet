@@ -44,8 +44,7 @@ impl Events {
                 loop {
                     if crossterm::event::poll(frame_duration).unwrap_or(false) {
                         while crossterm::event::poll(Duration::ZERO).unwrap_or(false) {
-                            if let Ok(crossterm::event::Event::Key(key)) =
-                                crossterm::event::read()
+                            if let Ok(crossterm::event::Event::Key(key)) = crossterm::event::read()
                             {
                                 let _ = tx.send(Event::Key(key)).await;
                             }

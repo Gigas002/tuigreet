@@ -10,8 +10,7 @@ use libratgreet::Greeter;
 use crate::ui::{
     Frame,
     common::style::{Theme, Themed},
-    strings,
-    themed_text,
+    strings, themed_text,
     util::*,
 };
 

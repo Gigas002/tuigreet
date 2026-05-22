@@ -71,7 +71,10 @@ fn load_returns_not_found() {
 #[test]
 fn load_layered_missing_override_uses_defaults() {
     let cfg = load_layered(Some(Path::new("/nonexistent/ratgreet/config.toml")));
-    assert_eq!(cfg.keybindings.command, Config::default().keybindings.command);
+    assert_eq!(
+        cfg.keybindings.command,
+        Config::default().keybindings.command
+    );
 }
 
 #[test]
@@ -81,7 +84,10 @@ fn load_layered_invalid_override_uses_defaults() {
     std::fs::write(&path, "not valid toml [[[").unwrap();
 
     let cfg = load_layered(Some(&path));
-    assert_eq!(cfg.keybindings.command, Config::default().keybindings.command);
+    assert_eq!(
+        cfg.keybindings.command,
+        Config::default().keybindings.command
+    );
 }
 
 #[test]
