@@ -1,0 +1,20 @@
+[files]
+extend-exclude = ["Cargo.lock", "contrib/screenshot*.png"]
+
+[default.extend-words]
+# greetd / PAM / Unix jargon
+greetd = "greetd"
+xsessions = "xsessions"
+xsession = "xsession"
+utmp = "utmp"
+uzers = "uzers"
+ratatui = "ratatui"
+crossterm = "crossterm"
+setsid = "setsid"
+nsswrapper = "nsswrapper"
+wayland = "wayland"
+startx = "startx"
+PAM = "PAM"
+
+[default]
+locale = "en-us"
