@@ -21,7 +21,7 @@ pub enum Themed {
     ActionButton,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Theme {
     container: Option<(Component, Color)>,
     time: Option<(Component, Color)>,

@@ -4,12 +4,15 @@ extern crate smart_default;
 #[macro_use]
 mod macros;
 
+mod config;
 mod event;
 mod greeter;
 mod info;
 mod ipc;
 mod keyboard;
 mod power;
+mod settings;
+mod theme;
 mod ui;
 
 #[cfg(test)]

@@ -329,10 +329,10 @@ Workflows under `.github/workflows/` (names/paths **tuigreet**, not wau):
 
 ### Phase 1 — Module layout + config/theme schemas
 
-- [ ] Reorganize flat `src/*.rs` into directory modules per §2 (`greeter/`, `ipc/`, `info/`, …)
-- [ ] Add `src/config/`, `src/theme/`, `src/settings/` with parse/validate + path resolution
-- [ ] Implement `Settings` merge (cli > file > defaults)
-- [ ] `examples/config.toml` + `examples/theme.toml` match parser
+- [x] Reorganize flat `src/*.rs` into directory modules per §2 (`greeter/`, `ipc/`, `info/`, …)
+- [x] Add `src/config/`, `src/theme/`, `src/settings/` with parse/validate + path resolution
+- [x] Implement `Settings` merge (cli > file > defaults)
+- [x] `examples/config.toml` + `examples/theme.toml` match parser
 
 **Verify**: unit tests in `src/config/tests.rs`, `src/theme/tests.rs`, `src/settings/tests.rs`.
 
@@ -417,3 +417,4 @@ When example shapes change, update `examples/*.toml` and `examples/cli.md` in th
 | 2026-05-22 | Phase 0 complete: CI hygiene, drop i18n/build.rs, English strings, rustix, quality gates green                                                             |
 | 2026-05-22 | Plan: drop `nsswrapper` feature and remove `contrib/` entirely; CI default-only                                                                            |
 | 2026-05-22 | Phase 0 complete: removed `contrib/`, `nsswrapper`, CI default-only matrix                                                                                 |
+| 2026-05-22 | Phase 1 complete: directory modules, config/theme/settings parsers and merge tests                                                                         |
