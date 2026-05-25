@@ -154,8 +154,17 @@ where
             _ => self::prompt::draw(&mut greeter, theme, f).ok(),
         };
 
+        tracing::debug!(
+            area = ?f.area(),
+            cursor = ?cursor,
+            hide = hide_cursor,
+            "draw"
+        );
+
         if !hide_cursor && let Some(cursor) = cursor {
-            f.set_cursor_position((cursor.0.saturating_sub(1), cursor.1.saturating_sub(1)));
+            let pos = (cursor.0.saturating_sub(1), cursor.1.saturating_sub(1));
+            tracing::debug!(x = pos.0, y = pos.1, "set_cursor_position");
+            f.set_cursor_position(pos);
         }
     })?;
 

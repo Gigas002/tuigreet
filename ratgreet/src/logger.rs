@@ -16,7 +16,9 @@ pub fn init(greeter: &Greeter) -> Option<WorkerGuard> {
     match (greeter.debug, logfile.open(&greeter.logfile)) {
         (true, Ok(file)) => {
             let (appender, guard) = tracing_appender::non_blocking(file);
-            let target = Targets::new().with_target("ratgreet", LevelFilter::DEBUG);
+            let target = Targets::new()
+                .with_target("ratgreet", LevelFilter::DEBUG)
+                .with_target("libratgreet", LevelFilter::DEBUG);
 
             tracing_subscriber::registry()
                 .with(

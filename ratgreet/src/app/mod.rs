@@ -51,6 +51,10 @@ where
         terminal.set_cursor_position((0, 0))?;
     }
 
+    if let Ok(size) = terminal.size() {
+        tracing::info!(cols = size.width, rows = size.height, "terminal size");
+    }
+
     let ipc = Ipc::new();
 
     let greeter = Arc::new(RwLock::new(greeter));
