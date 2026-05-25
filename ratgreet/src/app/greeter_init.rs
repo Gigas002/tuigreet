@@ -26,6 +26,8 @@ impl From<crate::theme::GreetAlign> for GreetAlign {
 }
 
 pub async fn init_greeter(events: Sender<Event>, settings: &Settings) -> Greeter {
+    tracing::info!("init_greeter: start");
+
     let mut greeter = Greeter::default();
     greeter.events = Some(events);
 
@@ -35,30 +37,57 @@ pub async fn init_greeter(events: Sender<Event>, settings: &Settings) -> Greeter
         selected: 0,
     };
 
+    tracing::debug!("init_greeter: applying config");
     apply_config(&mut greeter, settings);
+    tracing::debug!(
+        debug = greeter.debug,
+        logfile = %greeter.logfile,
+        width = greeter.width,
+        window_padding = greeter.window_padding,
+        container_padding = greeter.container_padding,
+        prompt_padding = greeter.prompt_padding,
+        kb_command = greeter.kb_command,
+        kb_sessions = greeter.kb_sessions,
+        kb_power = greeter.kb_power,
+        "init_greeter: config applied"
+    );
 
     #[cfg(not(feature = "test-harness"))]
     {
         use std::process;
 
         match std::env::var("GREETD_SOCK") {
-            Ok(socket) => greeter.socket = socket,
+            Ok(socket) => {
+                tracing::info!(socket = %socket, "init_greeter: GREETD_SOCK found");
+                greeter.socket = socket;
+            }
             Err(_) => {
+                tracing::error!("init_greeter: GREETD_SOCK not set — exiting");
                 eprintln!("GREETD_SOCK must be defined");
                 process::exit(1);
             }
         }
 
+        tracing::debug!("init_greeter: connecting to greetd");
         greeter.connect().await;
+        tracing::info!("init_greeter: connected to greetd");
     }
 
-    greeter.logger = crate::logger::init(&greeter);
+    #[cfg(feature = "test-harness")]
+    tracing::info!("init_greeter: test-harness mode — skipping greetd connection");
 
+    tracing::debug!("init_greeter: initializing logger");
+    greeter.logger = crate::logger::init(&greeter);
+    tracing::info!(logger_active = greeter.logger.is_some(), "init_greeter: logger initialized");
+
+    tracing::debug!("init_greeter: loading sessions");
     let sessions = get_sessions(&greeter).unwrap_or_default();
+    tracing::info!(count = sessions.len(), "init_greeter: sessions loaded");
 
     if let SessionSource::None = greeter.session_source
         && !sessions.is_empty()
     {
+        tracing::debug!("init_greeter: setting default session source to Session(0)");
         greeter.session_source = SessionSource::Session(0);
     }
 
@@ -68,6 +97,7 @@ pub async fn init_greeter(events: Sender<Event>, settings: &Settings) -> Greeter
         selected: 0,
     };
 
+    tracing::info!("init_greeter: done");
     greeter
 }
 

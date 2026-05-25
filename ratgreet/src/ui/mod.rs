@@ -54,6 +54,16 @@ where
     let mut greeter = greeter.write().await;
     let hide_cursor = should_hide_cursor(&greeter);
 
+    tracing::debug!(
+        mode = ?greeter.mode,
+        width = greeter.width(),
+        window_padding = greeter.window_padding(),
+        container_padding = greeter.container_padding(),
+        prompt_padding = greeter.prompt_padding(),
+        hide_cursor,
+        "draw begin"
+    );
+
     terminal.draw(|f| {
         let size = f.area();
         let chunks = Layout::default()

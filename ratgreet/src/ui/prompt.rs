@@ -157,32 +157,61 @@ pub fn draw(
         _ => {}
     }
 
+    tracing::debug!(
+        mode = ?greeter.mode,
+        cursor_rect_x = cursor.x,
+        cursor_rect_y = cursor.y,
+        frame_x = frame.x,
+        frame_y = frame.y,
+        container_x = x,
+        container_y = y,
+        container_w = width,
+        container_h = height,
+        prompt_padding,
+        "prompt layout"
+    );
+
     match greeter.mode {
         Mode::Username => {
             let username_length = greeter.username.get().chars().count();
             let offset = get_cursor_offset(greeter, username_length);
+            let label_len = strings::get("username").chars().count() as u16;
+            let raw = (2 + cursor.x + label_len + offset as u16, USERNAME_INDEX as u16 + cursor.y);
 
-            Ok((
-                2 + cursor.x + strings::get("username").chars().count() as u16 + offset as u16,
-                USERNAME_INDEX as u16 + cursor.y,
-            ))
+            tracing::debug!(
+                username_len = username_length,
+                cursor_offset = greeter.cursor_offset,
+                label_len,
+                raw_x = raw.0,
+                raw_y = raw.1,
+                "prompt cursor (Username)"
+            );
+
+            Ok(raw)
         }
 
         Mode::Password => {
             let answer_length = greeter.buffer.chars().count();
             let offset = get_cursor_offset(greeter, answer_length);
+            let prompt_width = greeter.prompt_width() as u16;
 
-            if greeter.asking_for_secret && !greeter.secret_display.shows_input() {
-                Ok((
-                    1 + cursor.x + greeter.prompt_width() as u16,
-                    ANSWER_INDEX as u16 + prompt_padding + cursor.y - 1,
-                ))
+            let raw = if greeter.asking_for_secret && !greeter.secret_display.shows_input() {
+                (1 + cursor.x + prompt_width, ANSWER_INDEX as u16 + prompt_padding + cursor.y - 1)
             } else {
-                Ok((
-                    1 + cursor.x + greeter.prompt_width() as u16 + offset as u16,
-                    ANSWER_INDEX as u16 + prompt_padding + cursor.y - 1,
-                ))
-            }
+                (1 + cursor.x + prompt_width + offset as u16, ANSWER_INDEX as u16 + prompt_padding + cursor.y - 1)
+            };
+
+            tracing::debug!(
+                answer_len = answer_length,
+                cursor_offset = greeter.cursor_offset,
+                prompt_width,
+                asking_secret = greeter.asking_for_secret,
+                raw_x = raw.0,
+                raw_y = raw.1,
+                "prompt cursor (Password)"
+            );
+
+            Ok(raw)
         }
 
         _ => Ok((1, 1)),

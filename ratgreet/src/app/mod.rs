@@ -33,47 +33,79 @@ where
     B: Backend,
     <B as Backend>::Error: 'static,
 {
-    tracing::info!("ratgreet started");
+    tracing::info!("app::run entered");
 
     register_panic_handler();
+    tracing::debug!("panic handler registered");
 
     #[cfg(all(not(test), not(feature = "test-harness")))]
     {
+        tracing::debug!("calling enable_raw_mode");
         enable_raw_mode()?;
+        tracing::info!("enable_raw_mode OK");
+
+        tracing::debug!("sending EnterAlternateScreen");
         execute!(io::stdout(), EnterAlternateScreen)?;
+        tracing::info!("EnterAlternateScreen OK");
     }
 
+    #[cfg(any(test, feature = "test-harness"))]
+    tracing::info!("app::run: TEST/TEST-HARNESS mode — skipping raw mode and alternate screen");
+
+    tracing::debug!("creating Terminal");
     let mut terminal = Terminal::new(backend)?;
+    tracing::debug!("Terminal created");
 
     #[cfg(all(not(test), not(feature = "test-harness")))]
     {
+        tracing::debug!("clearing terminal");
         terminal.clear()?;
+        tracing::debug!("setting initial cursor position");
         terminal.set_cursor_position((0, 0))?;
+        tracing::debug!("terminal initialized");
     }
 
-    if let Ok(size) = terminal.size() {
-        tracing::info!(cols = size.width, rows = size.height, "terminal size");
+    match terminal.size() {
+        Ok(size) => tracing::info!(cols = size.width, rows = size.height, "terminal size"),
+        Err(e) => tracing::warn!("could not get terminal size: {e}"),
     }
 
+    tracing::debug!("creating IPC");
     let ipc = Ipc::new();
+    tracing::debug!("IPC created");
 
     let greeter = Arc::new(RwLock::new(greeter));
 
+    tracing::debug!("spawning IPC task");
     let ipc_task = tokio::task::spawn({
         let greeter = greeter.clone();
         let mut ipc = ipc.clone();
 
         async move {
+            tracing::debug!("IPC task started");
+            let mut ipc_loop_count: u64 = 0;
             loop {
-                let _ = ipc.handle(greeter.clone()).await;
+                ipc_loop_count += 1;
+                tracing::trace!(ipc_loop_count, "IPC task loop iteration");
+                let result = ipc.handle(greeter.clone()).await;
+                if let Err(e) = result {
+                    tracing::warn!("IPC handle error: {e}");
+                }
             }
         }
     });
+    tracing::debug!("IPC task spawned");
+
+    tracing::info!("entering main event loop");
+    let mut event_loop_count: u64 = 0;
 
     loop {
+        event_loop_count += 1;
+        tracing::trace!(event_loop_count, "main loop iteration");
+
         let exit_status = greeter.read().await.exit;
         if let Some(status) = exit_status {
-            tracing::info!("exiting main loop");
+            tracing::info!("main loop: exit flag set, status={status}");
 
             ipc_task.abort();
             let _ = ipc_task.await;
@@ -82,18 +114,32 @@ where
             return Err(status.into());
         }
 
-        match events.next().await {
-            Some(Event::Render) => crate::ui::draw(greeter.clone(), &theme, &mut terminal).await?,
-            Some(Event::Key(key)) => keyboard::handle(greeter.clone(), key, ipc.clone()).await?,
+        tracing::trace!("waiting for next event");
+        let event = events.next().await;
+        tracing::trace!(has_event = event.is_some(), "got event from channel");
+
+        match event {
+            Some(Event::Render) => {
+                tracing::trace!("main loop: Render event");
+                crate::ui::draw(greeter.clone(), &theme, &mut terminal).await?
+            }
+
+            Some(Event::Key(key)) => {
+                tracing::debug!(key = ?key.code, mods = ?key.modifiers, "main loop: Key event");
+                keyboard::handle(greeter.clone(), key, ipc.clone()).await?
+            }
 
             Some(Event::Exit(status)) => {
+                tracing::info!("main loop: Exit event status={status}");
                 exit(&mut *greeter.write().await, status).await;
             }
 
             Some(Event::PowerCommand(command)) => {
+                tracing::info!("main loop: PowerCommand event");
                 if let PowerPostAction::ClearScreen =
                     libratgreet::power::run(&greeter, command).await
                 {
+                    tracing::info!("power: ClearScreen — cleaning up terminal");
                     execute!(io::stdout(), LeaveAlternateScreen)?;
                     terminal.set_cursor_position((1, 1))?;
                     terminal.clear()?;
@@ -104,31 +150,48 @@ where
                     drop(greeter);
 
                     break;
+                } else {
+                    tracing::info!("power: Noop — staying in event loop");
                 }
             }
 
-            _ => {}
+            None => {
+                tracing::warn!("main loop: event channel closed (None) — breaking");
+                break;
+            }
         }
     }
 
+    tracing::info!("app::run returning Ok");
     Ok(())
 }
 
 pub async fn exit(greeter: &mut Greeter, status: AuthStatus) {
-    tracing::info!("preparing exit with status {}", status);
+    tracing::info!("app::exit called with status={status}");
 
     match status {
-        AuthStatus::Success => {}
-        AuthStatus::Cancel | AuthStatus::Failure => Ipc::cancel(greeter).await,
+        AuthStatus::Success => {
+            tracing::info!("exit: Success — no IPC cancel needed");
+        }
+        AuthStatus::Cancel | AuthStatus::Failure => {
+            tracing::info!("exit: Cancel/Failure — sending IPC cancel");
+            Ipc::cancel(greeter).await;
+        }
     }
 
     #[cfg(all(not(test), not(feature = "test-harness")))]
-    clear_screen();
+    {
+        tracing::debug!("exit: calling clear_screen");
+        clear_screen();
+        tracing::debug!("exit: clear_screen done");
+    }
 
+    tracing::debug!("exit: leaving alternate screen and disabling raw mode");
     let _ = execute!(io::stdout(), LeaveAlternateScreen);
     let _ = disable_raw_mode();
 
     greeter.exit = Some(status);
+    tracing::info!("exit: greeter.exit set to {status}");
 }
 
 fn register_panic_handler() {

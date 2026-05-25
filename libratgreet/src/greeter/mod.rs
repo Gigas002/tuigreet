@@ -223,6 +223,7 @@ impl Greeter {
 
     // Reset the software to its initial state.
     pub async fn reset(&mut self, soft: bool) {
+        tracing::info!(soft, from_mode = ?self.mode, "greeter::reset");
         if soft {
             self.mode = Mode::Password;
             self.previous_mode = Mode::Password;
@@ -236,14 +237,20 @@ impl Greeter {
 
         self.scrub(false, soft);
         self.connect().await;
+        tracing::info!(mode = ?self.mode, "greeter::reset done");
     }
 
     // Connect to `greetd` and return a stream we can safely write to.
     pub async fn connect(&mut self) {
+        tracing::debug!(socket = %self.socket, "greeter::connect");
         match UnixStream::connect(&self.socket).await {
-            Ok(stream) => self.stream = Some(Arc::new(RwLock::new(stream))),
+            Ok(stream) => {
+                self.stream = Some(Arc::new(RwLock::new(stream)));
+                tracing::info!(socket = %self.socket, "greeter::connect OK");
+            }
 
             Err(err) => {
+                tracing::error!(socket = %self.socket, error = %err, "greeter::connect FAILED");
                 eprintln!("{err}");
                 process::exit(1);
             }

@@ -14,12 +14,6 @@ use crate::{
     power::power,
 };
 
-// Act on keyboard events.
-//
-// This function will be called whenever a keyboard event was captured by the
-// application. It takes a reference to the `Greeter` so it can be aware of the
-// current state of the application and act accordingly; It also receives the
-// `Ipc` interface so it is able to interact with `greetd` if necessary.
 pub async fn handle(
     greeter: Arc<RwLock<Greeter>>,
     input: KeyEvent,
@@ -27,24 +21,28 @@ pub async fn handle(
 ) -> Result<(), Box<dyn Error>> {
     let mut greeter = greeter.write().await;
 
+    tracing::debug!(mode = ?greeter.mode, key = ?input.code, mods = ?input.modifiers, working = greeter.working, "keyboard::handle");
+
     if greeter.working {
+        tracing::debug!("keyboard::handle: greeter.working=true, ignoring key");
         return Ok(());
     }
 
     match input {
-        // ^U should erase the current buffer.
         KeyEvent {
             code: KeyCode::Char('u'),
             modifiers: KeyModifiers::CONTROL,
             ..
-        } => match greeter.mode {
-            Mode::Username => greeter.username = MaskedString::default(),
-            Mode::Password => greeter.buffer = String::new(),
-            Mode::Command => greeter.buffer = String::new(),
-            _ => {}
-        },
+        } => {
+            tracing::debug!(mode = ?greeter.mode, "keyboard: Ctrl+U — erase buffer");
+            match greeter.mode {
+                Mode::Username => greeter.username = MaskedString::default(),
+                Mode::Password => greeter.buffer = String::new(),
+                Mode::Command => greeter.buffer = String::new(),
+                _ => {}
+            }
+        }
 
-        // In debug mode only, ^X will exit the application.
         #[cfg(debug_assertions)]
         KeyEvent {
             code: KeyCode::Char('x'),
@@ -53,65 +51,68 @@ pub async fn handle(
         } => {
             use crate::{AuthStatus, Event};
 
+            tracing::debug!("keyboard: Ctrl+X (debug) — sending Exit(Cancel)");
             if let Some(ref sender) = greeter.events {
                 let _ = sender.send(Event::Exit(AuthStatus::Cancel)).await;
             }
         }
 
-        // Depending on the active screen, pressing Escape will either return to the
-        // previous mode (close a popup, for example), or cancel the `greetd`
-        // session.
         KeyEvent {
             code: KeyCode::Esc, ..
-        } => match greeter.mode {
-            Mode::Command => {
-                greeter.mode = greeter.previous_mode;
-                greeter.buffer = greeter.previous_buffer.take().unwrap_or_default();
-                greeter.cursor_offset = 0;
-            }
+        } => {
+            tracing::debug!(mode = ?greeter.mode, "keyboard: Esc");
+            match greeter.mode {
+                Mode::Command => {
+                    tracing::debug!("keyboard: Esc in Command — returning to previous mode");
+                    greeter.mode = greeter.previous_mode;
+                    greeter.buffer = greeter.previous_buffer.take().unwrap_or_default();
+                    greeter.cursor_offset = 0;
+                }
 
-            Mode::Sessions | Mode::Power => {
-                greeter.mode = greeter.previous_mode;
-            }
+                Mode::Sessions | Mode::Power => {
+                    tracing::debug!(mode = ?greeter.mode, "keyboard: Esc in Sessions/Power — returning to previous mode");
+                    greeter.mode = greeter.previous_mode;
+                }
 
-            // In Username mode there is no active greetd session yet, so
-            // Ipc::cancel would send a spurious CancelSession and trigger a
-            // reconnect loop (especially when ESC arrives as a fragment of a
-            // VT escape sequence for F-keys). Just clear the input instead.
-            Mode::Username => {
-                greeter.username = MaskedString::default();
-                greeter.cursor_offset = 0;
-            }
+                Mode::Username => {
+                    tracing::debug!("keyboard: Esc in Username — clearing username buffer");
+                    greeter.username = MaskedString::default();
+                    greeter.cursor_offset = 0;
+                }
 
-            _ => {
-                Ipc::cancel(&mut greeter).await;
-                greeter.reset(false).await;
+                _ => {
+                    tracing::debug!(mode = ?greeter.mode, "keyboard: Esc in other mode — IPC cancel + reset");
+                    Ipc::cancel(&mut greeter).await;
+                    greeter.reset(false).await;
+                }
             }
-        },
+        }
 
-        // Simple cursor directions in text fields.
         KeyEvent {
             code: KeyCode::Left,
             ..
-        } => greeter.cursor_offset -= 1,
+        } => {
+            tracing::debug!("keyboard: Left");
+            greeter.cursor_offset -= 1;
+        }
+
         KeyEvent {
             code: KeyCode::Right,
             ..
-        } => greeter.cursor_offset += 1,
+        } => {
+            tracing::debug!("keyboard: Right");
+            greeter.cursor_offset += 1;
+        }
 
-        // F2 will display the command entry prompt. If we are already in one of the
-        // popup screens, we set the previous screen as being the current previous
-        // screen.
         KeyEvent {
             code: KeyCode::F(i),
             ..
         } if i == greeter.kb_command => {
+            tracing::debug!(f = i, "keyboard: F(command)");
             greeter.previous_mode = match greeter.mode {
                 Mode::Command | Mode::Sessions | Mode::Power => greeter.previous_mode,
                 _ => greeter.mode,
             };
-
-            // Set the edition buffer to the current command.
             greeter.previous_buffer = Some(greeter.buffer.clone());
             greeter.buffer = greeter
                 .session_source
@@ -122,40 +123,34 @@ pub async fn handle(
             greeter.mode = Mode::Command;
         }
 
-        // F3 will display the session selection menu. If we are already in one of
-        // the popup screens, we set the previous screen as being the current
-        // previous screen.
         KeyEvent {
             code: KeyCode::F(i),
             ..
         } if i == greeter.kb_sessions => {
+            tracing::debug!(f = i, "keyboard: F(sessions)");
             greeter.previous_mode = match greeter.mode {
                 Mode::Command | Mode::Sessions | Mode::Power => greeter.previous_mode,
                 _ => greeter.mode,
             };
-
             greeter.mode = Mode::Sessions;
         }
 
-        // F12 will display the user selection menu. If we are already in one of the
-        // popup screens, we set the previous screen as being the current previous
-        // screen.
         KeyEvent {
             code: KeyCode::F(i),
             ..
         } if i == greeter.kb_power => {
+            tracing::debug!(f = i, "keyboard: F(power)");
             greeter.previous_mode = match greeter.mode {
                 Mode::Command | Mode::Sessions | Mode::Power => greeter.previous_mode,
                 _ => greeter.mode,
             };
-
             greeter.mode = Mode::Power;
         }
 
-        // Handle moving up in menus.
         KeyEvent {
             code: KeyCode::Up, ..
         } => {
+            tracing::debug!("keyboard: Up");
             if let Mode::Sessions = greeter.mode
                 && greeter.sessions.selected > 0
             {
@@ -169,11 +164,11 @@ pub async fn handle(
             }
         }
 
-        // Handle moving down in menus.
         KeyEvent {
             code: KeyCode::Down,
             ..
         } => {
+            tracing::debug!("keyboard: Down");
             if let Mode::Sessions = greeter.mode
                 && greeter.sessions.selected < greeter.sessions.options.len() - 1
             {
@@ -187,110 +182,129 @@ pub async fn handle(
             }
         }
 
-        // ^A should go to the start of the current prompt
         KeyEvent {
             code: KeyCode::Char('a'),
             modifiers: KeyModifiers::CONTROL,
             ..
         } => {
+            tracing::debug!("keyboard: Ctrl+A — jump to start");
             let value = {
                 match greeter.mode {
                     Mode::Username => &greeter.username.value,
                     _ => &greeter.buffer,
                 }
             };
-
             greeter.cursor_offset = -(value.chars().count() as i16);
         }
 
-        // ^A should go to the end of the current prompt
         KeyEvent {
             code: KeyCode::Char('e'),
             modifiers: KeyModifiers::CONTROL,
             ..
-        } => greeter.cursor_offset = 0,
+        } => {
+            tracing::debug!("keyboard: Ctrl+E — jump to end");
+            greeter.cursor_offset = 0;
+        }
 
-        // Tab should validate the username entry (same as Enter).
         KeyEvent {
             code: KeyCode::Tab, ..
-        } => match greeter.mode {
-            Mode::Username if !greeter.username.value.is_empty() => {
-                validate_username(&mut greeter, &ipc).await
+        } => {
+            tracing::debug!(mode = ?greeter.mode, "keyboard: Tab");
+            match greeter.mode {
+                Mode::Username if !greeter.username.value.is_empty() => {
+                    tracing::debug!("keyboard: Tab in Username (non-empty) — validate_username");
+                    validate_username(&mut greeter, &ipc).await
+                }
+                _ => {
+                    tracing::debug!("keyboard: Tab — no action");
+                }
             }
-            _ => {}
-        },
+        }
 
-        // Enter validates the current entry, depending on the active mode.
         KeyEvent {
             code: KeyCode::Enter,
             ..
-        } => match greeter.mode {
-            Mode::Username if !greeter.username.value.is_empty() => {
-                validate_username(&mut greeter, &ipc).await
-            }
-
-            Mode::Username => {}
-
-            Mode::Password => {
-                greeter.working = true;
-                greeter.message = None;
-
-                ipc.send(Request::PostAuthMessageResponse {
-                    response: Some(greeter.buffer.clone()),
-                })
-                .await;
-
-                greeter.buffer = String::new();
-            }
-
-            Mode::Command => {
-                greeter.sessions.selected = 0;
-                greeter.session_source = SessionSource::Command(greeter.buffer.clone());
-
-                greeter.buffer = greeter.previous_buffer.take().unwrap_or_default();
-                greeter.mode = greeter.previous_mode;
-            }
-
-            Mode::Sessions => {
-                let session = greeter
-                    .sessions
-                    .options
-                    .get(greeter.sessions.selected)
-                    .cloned();
-
-                if let Some(Session { .. }) = session {
-                    greeter.session_source = SessionSource::Session(greeter.sessions.selected);
+        } => {
+            tracing::debug!(mode = ?greeter.mode, "keyboard: Enter");
+            match greeter.mode {
+                Mode::Username if !greeter.username.value.is_empty() => {
+                    tracing::debug!("keyboard: Enter in Username (non-empty) — validate_username");
+                    validate_username(&mut greeter, &ipc).await
                 }
 
-                greeter.mode = greeter.previous_mode;
-            }
-
-            Mode::Power => {
-                let power_command = greeter.powers.options.get(greeter.powers.selected).cloned();
-
-                if let Some(command) = power_command {
-                    power(&mut greeter, command.action).await;
+                Mode::Username => {
+                    tracing::debug!("keyboard: Enter in Username (empty) — no action");
                 }
 
-                greeter.mode = greeter.previous_mode;
+                Mode::Password => {
+                    tracing::debug!("keyboard: Enter in Password — posting auth response");
+                    greeter.working = true;
+                    greeter.message = None;
+
+                    ipc.send(Request::PostAuthMessageResponse {
+                        response: Some(greeter.buffer.clone()),
+                    })
+                    .await;
+
+                    greeter.buffer = String::new();
+                }
+
+                Mode::Command => {
+                    tracing::debug!("keyboard: Enter in Command — setting session source");
+                    greeter.sessions.selected = 0;
+                    greeter.session_source = SessionSource::Command(greeter.buffer.clone());
+
+                    greeter.buffer = greeter.previous_buffer.take().unwrap_or_default();
+                    greeter.mode = greeter.previous_mode;
+                }
+
+                Mode::Sessions => {
+                    tracing::debug!(selected = greeter.sessions.selected, "keyboard: Enter in Sessions");
+                    let session = greeter
+                        .sessions
+                        .options
+                        .get(greeter.sessions.selected)
+                        .cloned();
+
+                    if let Some(Session { .. }) = session {
+                        greeter.session_source = SessionSource::Session(greeter.sessions.selected);
+                    }
+
+                    greeter.mode = greeter.previous_mode;
+                }
+
+                Mode::Power => {
+                    tracing::debug!(selected = greeter.powers.selected, "keyboard: Enter in Power");
+                    let power_command = greeter.powers.options.get(greeter.powers.selected).cloned();
+
+                    if let Some(command) = power_command {
+                        power(&mut greeter, command.action).await;
+                    }
+
+                    greeter.mode = greeter.previous_mode;
+                }
+
+                _ => {
+                    tracing::debug!(mode = ?greeter.mode, "keyboard: Enter in other mode — no action");
+                }
             }
+        }
 
-            _ => {}
-        },
-
-        // Do not handle any other controls keybindings
         KeyEvent {
             modifiers: KeyModifiers::CONTROL,
             ..
-        } => {}
+        } => {
+            tracing::debug!(key = ?input.code, "keyboard: unhandled Ctrl combo — ignored");
+        }
 
-        // Handle free-form entry of characters.
         KeyEvent {
             code: KeyCode::Char(c),
             ..
-        } => insert_key(&mut greeter, c).await,
+        } => {
+            tracing::debug!(ch = %c, mode = ?greeter.mode, "keyboard: Char — insert");
+            insert_key(&mut greeter, c).await;
+        }
 
-        // Handle deletion of characters.
         KeyEvent {
             code: KeyCode::Backspace,
             ..
@@ -298,25 +312,35 @@ pub async fn handle(
         | KeyEvent {
             code: KeyCode::Delete,
             ..
-        } => delete_key(&mut greeter, input.code).await,
+        } => {
+            tracing::debug!(key = ?input.code, mode = ?greeter.mode, "keyboard: Backspace/Delete");
+            delete_key(&mut greeter, input.code).await;
+        }
 
-        _ => {}
+        _ => {
+            tracing::debug!(key = ?input.code, mods = ?input.modifiers, "keyboard: unmatched key — ignored");
+        }
     }
 
+    tracing::debug!(mode = ?greeter.mode, "keyboard::handle done");
     Ok(())
 }
 
-// Handle insertion of characters into the proper buffer, depending on the
-// current mode and the position of the cursor.
 async fn insert_key(greeter: &mut Greeter, c: char) {
     let value = match greeter.mode {
         Mode::Username => &greeter.username.value,
         Mode::Password => &greeter.buffer,
         Mode::Command => &greeter.buffer,
-        _ => return,
+        _ => {
+            tracing::debug!("insert_key: mode has no buffer, skipping");
+            return;
+        }
     };
 
-    let index = (value.chars().count() as i16 + greeter.cursor_offset) as usize;
+    let length = value.chars().count();
+    let index = (length as i16 + greeter.cursor_offset) as usize;
+    tracing::debug!(ch = %c, length, index, cursor_offset = greeter.cursor_offset, "insert_key");
+
     let left = value.chars().take(index);
     let right = value.chars().skip(index);
 
@@ -331,22 +355,25 @@ async fn insert_key(greeter: &mut Greeter, c: char) {
     };
 }
 
-// Handle deletion of characters from a prompt into the proper buffer, depending
-// on the current mode, whether Backspace or Delete was pressed and the position
-// of the cursor.
 async fn delete_key(greeter: &mut Greeter, key: KeyCode) {
     let value = match greeter.mode {
         Mode::Username => &greeter.username.value,
         Mode::Password => &greeter.buffer,
         Mode::Command => &greeter.buffer,
-        _ => return,
+        _ => {
+            tracing::debug!("delete_key: mode has no buffer, skipping");
+            return;
+        }
     };
 
+    let length = value.chars().count();
     let index = match key {
-        KeyCode::Backspace => (value.chars().count() as i16 + greeter.cursor_offset - 1) as usize,
-        KeyCode::Delete => (value.chars().count() as i16 + greeter.cursor_offset) as usize,
+        KeyCode::Backspace => (length as i16 + greeter.cursor_offset - 1) as usize,
+        KeyCode::Delete => (length as i16 + greeter.cursor_offset) as usize,
         _ => 0,
     };
+
+    tracing::debug!(key = ?key, length, index, cursor_offset = greeter.cursor_offset, "delete_key");
 
     if value.chars().nth(index).is_some() {
         let left = value.chars().take(index);
@@ -364,11 +391,13 @@ async fn delete_key(greeter: &mut Greeter, key: KeyCode) {
         if let KeyCode::Delete = key {
             greeter.cursor_offset += 1;
         }
+    } else {
+        tracing::debug!(index, length, "delete_key: index out of range, nothing deleted");
     }
 }
 
-// Creates a `greetd` session for the provided username.
 async fn validate_username(greeter: &mut Greeter, ipc: &Ipc) {
+    tracing::info!(username_len = greeter.username.value.len(), "validate_username — sending CreateSession");
     greeter.working = true;
     greeter.message = None;
 
