@@ -59,7 +59,7 @@ where
 
     let greeter = Arc::new(RwLock::new(greeter));
 
-    tokio::task::spawn({
+    let ipc_task = tokio::task::spawn({
         let greeter = greeter.clone();
         let mut ipc = ipc.clone();
 
@@ -71,8 +71,13 @@ where
     });
 
     loop {
-        if let Some(status) = greeter.read().await.exit {
+        let exit_status = greeter.read().await.exit;
+        if let Some(status) = exit_status {
             tracing::info!("exiting main loop");
+
+            ipc_task.abort();
+            let _ = ipc_task.await;
+            drop(greeter);
 
             return Err(status.into());
         }
@@ -93,6 +98,10 @@ where
                     terminal.set_cursor_position((1, 1))?;
                     terminal.clear()?;
                     disable_raw_mode()?;
+
+                    ipc_task.abort();
+                    let _ = ipc_task.await;
+                    drop(greeter);
 
                     break;
                 }
