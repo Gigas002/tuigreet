@@ -52,6 +52,12 @@ pub async fn init_greeter(events: Sender<Event>, settings: &Settings) -> Greeter
         "init_greeter: config applied"
     );
 
+    greeter.logger = crate::logger::init(&greeter);
+    if greeter.logger.is_some() {
+        log_terminal_context();
+        tracing::info!(logfile = %greeter.logfile, "debug logging active");
+    }
+
     #[cfg(not(feature = "test-harness"))]
     {
         use std::process;
@@ -75,10 +81,6 @@ pub async fn init_greeter(events: Sender<Event>, settings: &Settings) -> Greeter
 
     #[cfg(feature = "test-harness")]
     tracing::info!("init_greeter: test-harness mode — skipping greetd connection");
-
-    tracing::debug!("init_greeter: initializing logger");
-    greeter.logger = crate::logger::init(&greeter);
-    tracing::info!(logger_active = greeter.logger.is_some(), "init_greeter: logger initialized");
 
     tracing::debug!("init_greeter: loading sessions");
     let sessions = get_sessions(&greeter).unwrap_or_default();
@@ -166,3 +168,19 @@ fn apply_config(greeter: &mut Greeter, settings: &Settings) {
     greeter.kb_sessions = settings.keybindings.sessions;
     greeter.kb_power = settings.keybindings.power;
 }
+
+#[cfg(not(feature = "test-harness"))]
+fn log_terminal_context() {
+    use std::io::{stdin, stdout, IsTerminal};
+
+    let term = std::env::var("TERM").unwrap_or_else(|_| "(unset)".into());
+    tracing::info!(
+        term = %term,
+        stdin_is_tty = stdin().is_terminal(),
+        stdout_is_tty = stdout().is_terminal(),
+        "terminal context"
+    );
+}
+
+#[cfg(feature = "test-harness")]
+fn log_terminal_context() {}
